@@ -12,3 +12,13 @@ This will use Elk for the desktop version and Duktape for the esp32 version for 
 
 ## Building
 You have to build SDL2 for Apple Silicon and Intel from source in order to build the Mac version. A premade binary will be added to the main build soon.
+
+## Star History
+
+<a href="https://www.star-history.com/#NellowTCS/TactileBrowser&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NellowTCS/TactileBrowser&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NellowTCS/TactileBrowser&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NellowTCS/TactileBrowser&type=Date" />
+ </picture>
+</a>
