@@ -1,5 +1,5 @@
 # TactileBrowser
-[![Build TactileBrowser](https://github.com/NellowTCS/TactileBrowser/actions/workflows/autobuild.yml/badge.svg)](https://github.com/NellowTCS/TactileBrowser/actions/workflows/autobuild.yml)
+[![Build TactileBrowser](https://github.com/NellowTCS/TactileBrowser/actions/workflows/autobuild.yml/badge.svg)](https://github.com/NellowTCS/TactileBrowser/actions/workflows/autobuild.yml)  
 A Tactility external app, meant as a web browser for ESP32 and ESP32-S3 devices.
 
 
