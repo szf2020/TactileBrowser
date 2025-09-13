@@ -1,0 +1,2 @@
+source /workspaces/TactileBrowser/src/build/cmake-build-esp32/bootloader/gdbinit/symbols
+source /workspaces/TactileBrowser/src/build/cmake-build-esp32/bootloader/gdbinit/connect
