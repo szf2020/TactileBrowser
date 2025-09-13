@@ -251,7 +251,7 @@ jobs:
       - name: Download and install ESP-IDF if missing
         run: |
           if [ ! -f "esp-idf/install.sh" ]; then
-            wget -q https://github.com/espressif/esp-idf/releases/download/v${{ env.IDF_VERSION }}/esp-idf-v${{ env.IDF_VERSION }}.zip -O esp-idf.zip
+            wget -q https://github.com/espressif/esp-idf/releases/download/${{ env.IDF_VERSION }}/esp-idf-${{ env.IDF_VERSION }}.zip -O esp-idf.zip
             unzip -q esp-idf.zip
             mv esp-idf-v${{ env.IDF_VERSION }} esp-idf
           fi
@@ -270,14 +270,8 @@ jobs:
           . ../esp-idf/export.sh
           python3 tactility.py build all
 
-      - name: Upload ESP32 ELF artifact
+      - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TactileBrowser-esp32-elf
-          path: src/build-esp32/TactileBrowser.app.elf
-
-      - name: Upload ESP32S3 ELF artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TactileBrowser-esp32s3-elf
-          path: src/build-esp32s3/TactileBrowser.app.elf
+          name: TactileBrowser.app
+          path: src/build/TactileBrowser.app
