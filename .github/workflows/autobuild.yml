@@ -267,6 +267,7 @@ jobs:
       - name: Build ESP32 firmware with TactilityTool
         working-directory: src
         run: |
+          export IDF_VERSION=5.5
           . ../esp-idf/export.sh
           python3 tactility.py clean
           python3 tactility.py build
@@ -274,5 +275,5 @@ jobs:
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TactileBrowser.app
+          name: TactileBrowser_esp.app
           path: src/build/TactileBrowser.app
