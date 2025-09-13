@@ -233,8 +233,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: esp-idf
-          key: esp-idf-${{ env.IDF_VERSION }}-${{ runner.os }}-v2
-          restore-keys: esp-idf-
+          key: esp-idf-new-${{ env.IDF_VERSION }}-${{ runner.os }}-v2
+          restore-keys: esp-idf-new-
 
       - name: Cache pip packages
         uses: actions/cache@v3
