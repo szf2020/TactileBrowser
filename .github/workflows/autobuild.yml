@@ -261,14 +261,23 @@ jobs:
 
       - name: Setup ESP-IDF environment variables
         run: |
+          # Remove any old ESP-IDF from PATH
+          export PATH=$(echo $PATH | tr ':' '\n' | grep -v 'esp-idf' | paste -sd ':' -)
+          unset IDF_PATH
+          unset IDF_VERSION
+
+          # Set new ESP-IDF path
           echo "IDF_PATH=$PWD/esp-idf" >> $GITHUB_ENV
           echo "$PWD/esp-idf/tools" >> $GITHUB_PATH
 
       - name: Build ESP32 firmware with TactilityTool
         working-directory: src
         run: |
+          # Ensure only the desired IDF version is active
           export IDF_VERSION=5.5
+          unset IDF_PATH
           . ../esp-idf/export.sh
+
           python3 tactility.py clean
           python3 tactility.py build
 
