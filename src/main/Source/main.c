@@ -43,18 +43,6 @@ static const color_entry_t color_table[] = {
 static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent);
 static void render_node_tree(lxb_dom_node_t* node, lv_obj_t* parent, int* y_offset);
 
-// Helper function to get appropriate font based on size
-static const lv_font_t* get_font_for_size(int size) {
-    // Use only available built-in fonts - only lv_font_montserrat_14 is guaranteed
-    if (size >= 16) {
-        return &lv_font_montserrat_14; // Use 14 as largest available
-    } else if (size >= 14) {
-        return &lv_font_montserrat_14;
-    } else {
-        return &lv_font_montserrat_14; // Use 14 as smallest available too
-    }
-}
-
 // Optimized CSS parser with color name support
 static void apply_inline_style(lv_obj_t* obj, const char* style) {
     if (!style || strlen(style) >= MAX_STYLE_BUFFER) return;
@@ -113,15 +101,7 @@ static void apply_inline_style(lv_obj_t* obj, const char* style) {
                 lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
             }
         }
-        else if (strcmp(key_start, "font-size") == 0) {
-            int size = atoi(val_start);
-            lv_obj_set_style_text_font(obj, get_font_for_size(size), 0);
-        }
-        else if (strcmp(key_start, "font-weight") == 0) {
-            if (strcmp(val_start, "bold") == 0) {
-                lv_obj_set_style_text_font(obj, &lv_font_montserrat_14, 0);
-            }
-        }
+        // Removed font-size and font-weight handling - let system handle fonts
         else if (strcmp(key_start, "text-align") == 0) {
             if (strcmp(val_start, "center") == 0) {
                 lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, 0);
@@ -144,19 +124,19 @@ static void apply_inline_style(lv_obj_t* obj, const char* style) {
     }
 }
 
-// Enhanced element rendering with better HTML support
+// Enhanced element rendering with better HTML support - removed hardcoded fonts
 static lv_obj_t* create_element_widget(lxb_dom_element_t* el, lv_obj_t* parent, const char* tag_name, size_t tag_len) {
     lv_obj_t* widget = NULL;
     
     // Handle different HTML elements
     if (tag_len == 2 && memcmp(tag_name, "h1", 2) == 0) {
         widget = lv_label_create(parent);
-        lv_obj_set_style_text_font(widget, &lv_font_montserrat_14, 0);
+        // Removed hardcoded font - let system handle it
         lv_obj_set_style_text_color(widget, lv_color_hex(0x000080), 0);
     }
     else if (tag_len == 2 && (memcmp(tag_name, "h2", 2) == 0 || memcmp(tag_name, "h3", 2) == 0)) {
         widget = lv_label_create(parent);
-        lv_obj_set_style_text_font(widget, &lv_font_montserrat_14, 0);
+        // Removed hardcoded font - let system handle it
         lv_obj_set_style_text_color(widget, lv_color_hex(0x000080), 0);
     }
     else if (tag_len == 1 && memcmp(tag_name, "p", 1) == 0) {
