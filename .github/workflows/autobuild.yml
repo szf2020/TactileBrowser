@@ -220,7 +220,7 @@ jobs:
     name: Build ESP-IDF apps
     runs-on: ubuntu-latest
     env:
-      IDF_VERSION: v5.5
+      IDF_VERSION: v5.4
       PIP_CACHE_DIR: ~/.cache/pip
     steps:
       - name: Checkout repository with submodules
@@ -264,11 +264,11 @@ jobs:
           echo "IDF_PATH=$PWD/esp-idf" >> $GITHUB_ENV
           echo "$PWD/esp-idf/tools" >> $GITHUB_PATH
 
-      - name: Clean and Build ESP32 firmware with TactilityTool
+      - name: Build ESP32 firmware with TactilityTool
         working-directory: src
         run: |
           . ../esp-idf/export.sh
-          rm -rf build/cmake-build-esp32/*
+          python3 tactility.py clean
           python3 tactility.py build
 
       - name: Upload app artifact
