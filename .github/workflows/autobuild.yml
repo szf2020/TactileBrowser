@@ -220,7 +220,7 @@ jobs:
     name: Build ESP-IDF apps
     runs-on: ubuntu-latest
     env:
-      IDF_VERSION: v5.4
+      IDF_VERSION: v5.5
       PIP_CACHE_DIR: ~/.cache/pip
     steps:
       - name: Checkout repository with submodules
