@@ -253,7 +253,7 @@ jobs:
           if [ ! -f "esp-idf/install.sh" ]; then
             wget -q https://github.com/espressif/esp-idf/releases/download/${{ env.IDF_VERSION }}/esp-idf-${{ env.IDF_VERSION }}.zip -O esp-idf.zip
             unzip -q esp-idf.zip
-            mv esp-idf-v${{ env.IDF_VERSION }} esp-idf
+            mv esp-idf-${{ env.IDF_VERSION }} esp-idf
           fi
           python3 -m pip install --upgrade pip setuptools
           python3 esp-idf/tools/idf_tools.py install-python-env
