@@ -273,13 +273,14 @@ jobs:
       - name: Build ESP32 firmware with TactilityTool
         working-directory: src
         run: |
-          # Ensure only the desired IDF version is active
-          export IDF_VERSION=5.5.1
-          unset IDF_PATH
           . ../esp-idf/export.sh
 
+          export TACTILITY_SDK_PATH=./CustomSDK/0.5.0-esp32/TactilitySDK
           python3 tactility.py clean
-          python3 tactility.py build
+          python3 tactility.py build esp32 --local-sdk
+
+          export TACTILITY_SDK_PATH=./CustomSDK/0.5.0-esp32s3/TactilitySDK
+          python3 tactility.py build esp32s3 --local-sdk
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
