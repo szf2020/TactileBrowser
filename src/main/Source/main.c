@@ -384,78 +384,59 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
     lxb_html_document_destroy(document);
 }
 
-// Button event callback
+// Button event callback - no class checks
 static void fetch_btn_event_cb(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-    
+
     lv_obj_t* btn = lv_event_get_target(e);
-    lv_obj_t* parent = lv_obj_get_parent(btn);
-    
-    // Find components
-    lv_obj_t* addr_bar = NULL;
-    lv_obj_t* content_cont = NULL;
-    
-    uint32_t child_cnt = lv_obj_get_child_cnt(parent);
-    for (uint32_t i = 0; i < child_cnt; i++) {
-        lv_obj_t* child = lv_obj_get_child(parent, i);
-        if (lv_obj_has_class(child, lv_textarea_get_class())) {
-            addr_bar = child;
-        } else if (child != btn && !lv_obj_has_class(child, lv_label_get_class())) {
-            content_cont = child;
-        }
-    }
-    
-    if (!addr_bar || !content_cont) return;
-    
-    // Get URL and validate
-    const char* url = lv_textarea_get_text(addr_bar);
+
+    // Get associated objects stored in user data
+    struct {
+        lv_obj_t* addr_bar;
+        lv_obj_t* content_cont;
+    } *refs = lv_obj_get_user_data(btn);
+
+    if (!refs || !refs->addr_bar || !refs->content_cont) return;
+
+    const char* url = lv_textarea_get_text(refs->addr_bar);
     if (!url || strlen(url) == 0) return;
-    
-    // Copy URL to buffer for safety
+
     strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
     url_buffer[MAX_URL_LENGTH - 1] = 0;
-    
-    // Fetch and render
-    fetch_and_render(global_app, url_buffer, content_cont);
+
+    fetch_and_render(global_app, url_buffer, refs->content_cont);
 }
 
-// Enhanced address bar with history - Fixed event handling
+// Address bar event callback - no class checks
 static void addr_bar_event_cb(lv_event_t* e) {
-    if (lv_event_get_code(e) == LV_EVENT_READY) {
-        // User pressed Enter - simulate a button click by calling the function directly
-        lv_obj_t* addr_bar = lv_event_get_target(e);
-        lv_obj_t* parent = lv_obj_get_parent(addr_bar);
-        
-        // Find the content container and execute fetch directly
-        lv_obj_t* content_cont = NULL;
-        uint32_t child_cnt = lv_obj_get_child_cnt(parent);
-        for (uint32_t i = 0; i < child_cnt; i++) {
-            lv_obj_t* child = lv_obj_get_child(parent, i);
-            if (child != addr_bar && !lv_obj_check_type(child, &lv_button_class) && 
-                !lv_obj_check_type(child, &lv_label_class)) {
-                content_cont = child;
-                break;
-            }
-        }
-        
-        if (content_cont) {
-            const char* url = lv_textarea_get_text(addr_bar);
-            if (url && strlen(url) > 0) {
-                strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
-                url_buffer[MAX_URL_LENGTH - 1] = 0;
-                fetch_and_render(global_app, url_buffer, content_cont);
-            }
-        }
-    }
+    if (lv_event_get_code(e) != LV_EVENT_READY) return;
+
+    lv_obj_t* addr_bar = lv_event_get_target(e);
+
+    struct {
+        lv_obj_t* addr_bar;
+        lv_obj_t* content_cont;
+    } *refs = lv_obj_get_user_data(addr_bar);
+
+    if (!refs || !refs->content_cont) return;
+
+    const char* url = lv_textarea_get_text(addr_bar);
+    if (!url || strlen(url) == 0) return;
+
+    strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
+    url_buffer[MAX_URL_LENGTH - 1] = 0;
+
+    fetch_and_render(global_app, url_buffer, refs->content_cont);
 }
+
 
 static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     global_app = app;
-    
+
     // Create toolbar
     tt_lvgl_toolbar_create_for_app(parent, app);
-    
-    // Address bar with better styling
+
+    // Address bar
     lv_obj_t* addr_bar = lv_textarea_create(parent);
     lv_obj_set_width(addr_bar, lv_pct(75));
     lv_obj_set_height(addr_bar, 35);
@@ -463,22 +444,8 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_textarea_set_text(addr_bar, "http://example.com");
     lv_textarea_set_placeholder_text(addr_bar, "Enter URL...");
     lv_obj_align(addr_bar, LV_ALIGN_TOP_LEFT, 10, 30);
-    lv_obj_add_event_cb(addr_bar, addr_bar_event_cb, LV_EVENT_READY, NULL);
-    
-    // Go button with better styling
-    lv_obj_t* fetch_btn = lv_btn_create(parent);
-    lv_obj_set_size(fetch_btn, 70, 35);
-    lv_obj_align(fetch_btn, LV_ALIGN_TOP_RIGHT, -10, 30);
-    lv_obj_set_style_bg_color(fetch_btn, lv_color_hex(0x2196F3), 0);
-    
-    lv_obj_t* btn_label = lv_label_create(fetch_btn);
-    lv_label_set_text(btn_label, "Go");
-    lv_obj_set_style_text_color(btn_label, lv_color_white(), 0);
-    lv_obj_center(btn_label);
-    
-    lv_obj_add_event_cb(fetch_btn, fetch_btn_event_cb, LV_EVENT_CLICKED, NULL);
-    
-    // Content container with better scrolling
+
+    // Content container
     lv_obj_t* content_cont = lv_obj_create(parent);
     lv_obj_set_size(content_cont, lv_pct(100), lv_pct(85));
     lv_obj_align(content_cont, LV_ALIGN_TOP_LEFT, 0, 75);
@@ -487,7 +454,35 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_obj_set_style_bg_color(content_cont, lv_color_white(), 0);
     lv_obj_set_style_border_width(content_cont, 1, 0);
     lv_obj_set_style_border_color(content_cont, lv_color_hex(0xCCCCCC), 0);
-    
+
+    // Create Go button
+    lv_obj_t* fetch_btn = lv_btn_create(parent);
+    lv_obj_set_size(fetch_btn, 70, 35);
+    lv_obj_align(fetch_btn, LV_ALIGN_TOP_RIGHT, -10, 30);
+    lv_obj_set_style_bg_color(fetch_btn, lv_color_hex(0x2196F3), 0);
+
+    lv_obj_t* btn_label = lv_label_create(fetch_btn);
+    lv_label_set_text(btn_label, "Go");
+    lv_obj_set_style_text_color(btn_label, lv_color_white(), 0);
+    lv_obj_center(btn_label);
+
+    // Link address bar and content container in a small struct
+    struct {
+        lv_obj_t* addr_bar;
+        lv_obj_t* content_cont;
+    } *refs = malloc(sizeof(*refs));
+
+    refs->addr_bar = addr_bar;
+    refs->content_cont = content_cont;
+
+    // Store the struct in both button and address bar
+    lv_obj_set_user_data(fetch_btn, refs);
+    lv_obj_set_user_data(addr_bar, refs);
+
+    // Attach event callbacks
+    lv_obj_add_event_cb(fetch_btn, fetch_btn_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(addr_bar, addr_bar_event_cb, LV_EVENT_READY, NULL);
+
     // Initial page load
     fetch_and_render(app, "http://example.com", content_cont);
 }
