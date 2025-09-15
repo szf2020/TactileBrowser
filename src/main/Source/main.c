@@ -398,9 +398,9 @@ static void fetch_btn_event_cb(lv_event_t* e) {
     uint32_t child_cnt = lv_obj_get_child_cnt(parent);
     for (uint32_t i = 0; i < child_cnt; i++) {
         lv_obj_t* child = lv_obj_get_child(parent, i);
-        if (lv_obj_check_type(child, &lv_textarea_class)) {
+        if (lv_obj_has_class(child, lv_textarea_get_class())) {
             addr_bar = child;
-        } else if (child != btn && !lv_obj_check_type(child, &lv_label_class)) {
+        } else if (child != btn && !lv_obj_has_class(child, lv_label_get_class())) {
             content_cont = child;
         }
     }
