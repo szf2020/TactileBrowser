@@ -14,3 +14,6 @@ set(EXTRA_COMPONENT_DIRS ${TACTILITY_SDK_PATH})
 
 project(TactileBrowser)
 tactility_project(TactileBrowser)
+
+# Force the linker to error out if there are unresolved symbols
+add_link_options(-Wl,--no-undefined -Wl,--fatal-warnings)
