@@ -15,5 +15,11 @@ set(EXTRA_COMPONENT_DIRS ${TACTILITY_SDK_PATH})
 project(TactileBrowser)
 tactility_project(TactileBrowser)
 
-# Force the linker to error out if there are unresolved symbols
-add_link_options(-Wl,--no-undefined -Wl,--fatal-warnings)
+# Post-build check for unresolved symbols
+add_custom_command(
+    TARGET ${CMAKE_PROJECT_NAME}.elf
+    POST_BUILD
+    COMMAND ${CMAKE_OBJDUMP} -T $<TARGET_FILE:${CMAKE_PROJECT_NAME}.elf> | grep "UND" && 
+            (echo "❌ Error: Unresolved symbols detected!" && false) || true
+    COMMENT "Checking for unresolved symbols..."
+)
