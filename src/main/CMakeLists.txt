@@ -24,6 +24,15 @@ add_custom_command(
     TARGET ${COMPONENT_LIB}
     POST_BUILD
     DEPENDS create_undefined_check_dir
-    COMMAND bash -c "${CMAKE_OBJDUMP} -T $<TARGET_FILE:${COMPONENT_LIB}> | grep 'UND' > ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt || true; if [ -s ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt ]; then echo '❌ Unresolved symbols detected:'; cat ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt; exit 1; fi"
+    COMMAND ${CMAKE_OBJDUMP} -t $<TARGET_FILE:${COMPONENT_LIB}> | grep "UND" > ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt || true
+    COMMAND ${CMAKE_COMMAND} -E echo "Checking for unresolved symbols..."
+    COMMAND ${CMAKE_COMMAND} -E file SIZE ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt UNDEFINED_SYMBOLS_SIZE
+    COMMAND ${CMAKE_COMMAND} -E if "${UNDEFINED_SYMBOLS_SIZE}" GREATER 0
+        ${CMAKE_COMMAND} -E echo "❌ Unresolved symbols detected:"
+        ${CMAKE_COMMAND} -E cat ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt
+        ${CMAKE_COMMAND} -E false
+    COMMAND ${CMAKE_COMMAND} -E else
+        ${CMAKE_COMMAND} -E echo "No unresolved symbols found."
+    COMMAND ${CMAKE_COMMAND} -E endif
     COMMENT "Checking for undefined symbols in ${COMPONENT_LIB}"
 )
