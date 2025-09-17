@@ -12,10 +12,14 @@ set_target_properties(${COMPONENT_LIB} PROPERTIES C_STANDARD 99)
 add_subdirectory(lexbor)
 target_link_libraries(${COMPONENT_LIB} PRIVATE lexbor_static)
 
-# Portable post-build check for unresolved symbols
+# Suppress #include_next warnings
+add_compile_options(-Wno-include-next-warning)
+
+# Post-build check for unresolved symbols (portable)
 add_custom_command(
     TARGET ${COMPONENT_LIB}
     POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}
     COMMAND ${CMAKE_COMMAND} -E sh -c "${CMAKE_OBJDUMP} -T $<TARGET_FILE:${COMPONENT_LIB}> | grep 'UND' > ${CMAKE_BINARY_DIR}/undefined_symbols.txt || true"
     COMMAND ${CMAKE_COMMAND} -E sh -c "if [ -s ${CMAKE_BINARY_DIR}/undefined_symbols.txt ]; then echo '❌ Unresolved symbols detected:'; cat ${CMAKE_BINARY_DIR}/undefined_symbols.txt; exit 1; fi"
     COMMENT "Checking for unresolved symbols in component..."
