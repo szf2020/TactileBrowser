@@ -19,8 +19,8 @@ add_compile_options(-Wno-include-next-warning)
 add_custom_command(
     TARGET ${COMPONENT_LIB}
     POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E sh -c "${CMAKE_OBJDUMP} -T $<TARGET_FILE:${COMPONENT_LIB}> | grep 'UND' > ${CMAKE_BINARY_DIR}/undefined_symbols.txt || true"
-    COMMAND ${CMAKE_COMMAND} -E sh -c "if [ -s ${CMAKE_BINARY_DIR}/undefined_symbols.txt ]; then echo '❌ Unresolved symbols detected:'; cat ${CMAKE_BINARY_DIR}/undefined_symbols.txt; exit 1; fi"
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/undefined_check
+    COMMAND ${CMAKE_COMMAND} -E sh -c "${CMAKE_OBJDUMP} -T $<TARGET_FILE:${COMPONENT_LIB}> | grep 'UND' > ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt || true"
+    COMMAND ${CMAKE_COMMAND} -E sh -c "if [ -s ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt ]; then echo '❌ Unresolved symbols detected:'; cat ${CMAKE_BINARY_DIR}/undefined_check/undefined_symbols.txt; exit 1; fi"
     COMMENT "Checking for unresolved symbols in component..."
 )
