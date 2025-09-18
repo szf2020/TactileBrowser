@@ -31,6 +31,10 @@ add_compile_options(
     -Wno-unused-parameter
 )
 
+# Suppress warnings from #include_next in Lexbor
+add_compile_options(-Wno-include-next)
+
+
 # Force standard versions
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)

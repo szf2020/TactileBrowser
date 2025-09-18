@@ -488,7 +488,6 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
 }
 
 ExternalAppManifest manifest = {
-    .name = "Tactile Browser",
     .onShow = onShow
 };
 
