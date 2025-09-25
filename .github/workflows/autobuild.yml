@@ -271,7 +271,7 @@ jobs:
           echo "$PWD/esp-idf/tools" >> $GITHUB_PATH
 
       - name: Build ESP32 firmware with TactilityTool
-        working-directory: src
+        working-directory: tactility-src
         run: |
           . ../esp-idf/export.sh
           python3 tactility.py build
@@ -280,4 +280,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TactileBrowser_esp.app
-          path: src/build/TactileBrowser.app
+          path: tactility-src/build/TactileBrowser.app

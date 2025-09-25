@@ -1,7 +1,11 @@
 
-[submodule "elk-main"]
-	path = src/main/elk
+[submodule "elk-tactility"]
+	path = tactility-src/main/elk
 	url = https://github.com/cesanta/elk.git
+
+[submodule "lexbor-tactility"]
+	path = tactility-src/main/lexbor
+	url = https://github.com/lexbor/lexbor.git
 
 [submodule "elk-desktop"]
 	path = desktop-src/main/elk
@@ -10,9 +14,7 @@
 [submodule "lvgl-desktop"]
 	path = desktop-src/main/lvgl
 	url = https://github.com/lvgl/lvgl.git
-[submodule "desktop-src/main/lexbor"]
+
+[submodule "lexbor-desktop"]
 	path = desktop-src/main/lexbor
-	url = https://github.com/lexbor/lexbor.git
-[submodule "src/main/lexbor"]
-	path = src/main/lexbor
 	url = https://github.com/lexbor/lexbor.git
