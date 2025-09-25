@@ -9,37 +9,15 @@ static constexpr const char* TAG = "BROWSER";
 #define MAX_TABS 5
 #define MAX_URL_LENGTH 512
 
-// Browser state
-typedef struct {
-    String url;
-    String title;
-    String content;
-    bool loaded;
-} Tab;
-
 // Global variables
-static Tab tabs[MAX_TABS];
-static int tab_count = 1;
-static int active_tab = 0;
-static String current_url = "";
-static String current_line = "";
-static volatile bool doFull = false;
-
-// Browser states
-enum BROWSERState {
-    BROWSER_VIEW = 0,
-    BROWSER_URL_INPUT,
-    BROWSER_TAB_SELECT,
-    BROWSER_HELP
-};
+Tab tabs[MAX_TABS];          // define storage for extern
+int tab_count = 0;
+int active_tab = 0;
+String current_url = "";
+String current_line = "";
+volatile bool doFull = false;
 
 BROWSERState CurrentBROWSERState = BROWSER_VIEW;
-
-// Memory buffer for CURL
-typedef struct {
-    char *data;
-    size_t size;
-} MemoryBuffer;
 
 // Frame sources for display
 FixedArenaSource<512, 16384> browserLines;
@@ -331,7 +309,7 @@ void closeBrowser() {
     EINK().getDisplay().fillScreen(GxEPD_WHITE);
     u8g2.clearBuffer();
     
-    currentLine = "";
+    current_line = "";
     newState = true;
     CurrentKBState = NORMAL;
     disableTimeout = false;
@@ -595,7 +573,7 @@ void einkHandler_BROWSER() {
             doFull = false;
         } else if (newLineAdded && !newState) {
             refresh_count++;
-            if (refresh_count > REFRESH_MAX_CALC) { // Reuse calc refresh max
+            if (refresh_count > REFRESH_MAX_BROWSER) {
                 drawBrowser();
                 EINK().setFastFullRefresh(false);
                 einkFramesDynamic(frames, true);

@@ -21,6 +21,12 @@
 #include <assets.h>
 #include <config.h>
 
+// Browser specific libraries
+#include <curl/curl.h>
+#include <lexbor/html/html.h>
+#include <lexbor/dom/interfaces/document.h>
+#include <lexbor/dom/interfaces/element.h>
+
 // calc and frames
 #include <pgmspace.h>
 #include <queue>
@@ -173,121 +179,53 @@ extern std::vector<std::vector<String>> tasks; // Task list
 enum HOMEState { HOME_HOME, NOWLATER };       // Home app states
 extern HOMEState CurrentHOMEState;            // Current home state
 
-// ===================== FUNCTION PROTOTYPES =====================
-// <sysFunc.cpp>
-/* migrated to pocketmage_sys
-void checkTimeout();
-void  IRAM_ATTR PWR_BTN_irq();
-void TCA8418_irq(); // migrated to pocketmage_keypad.h
-char updateKeypress(); // migrated to pocketmage_keypad.h
-void printDebug();
-void saveFile();
-void writeMetadata(const String& path);
-void loadFile(bool showOLED = true);
-void delFile(String fileName);
-void deleteMetadata(String path);
-void renFile(String oldFile, String newFile);
-void renMetadata(String oldPath, String newPath);
-void copyFile(String oldFile, String newFile);
-void updateBattState();
-void setCpuSpeed(int newFreq);
-void playJingle(String jingle); // migrated to pocketmage_bz.h
-void deepSleep(bool alternateScreenSaver = false);
-void loadState(bool changeState = true);
-void updateScrollFromTouch(); // migrated to pocketmage_touch.h
-void setTimeFromString(String timeStr);
-*/
-//int stringToInt(String str);
-//String removeChar(String str, char character);
-//void appendToFile(String path, String inText);
-//String vectorToString();
-//void stringToVector(String inputText);
+// ===================== BROWSER APP =====================
+#define MAX_TABS 5
+#define MAX_URL_LENGTH 512
+#define REFRESH_MAX_BROWSER 5
 
-/* //migrated to pocketmage_sd.h
-// microSD
-void listDir(fs::FS &fs, const char *dirname);
-void readFile(fs::FS &fs, const char *path);
-String readFileToString(fs::FS &fs, const char *path);
-void writeFile(fs::FS &fs, const char *path, const char *message);
-void appendFile(fs::FS &fs, const char *path, const char *message);
-void renameFile(fs::FS &fs, const char *path1, const char *path2);
-void deleteFile(fs::FS &fs, const char *path);
-*/
+// Browser tab structure
+typedef struct {
+    String url;
+    String title;
+    String content;
+    bool loaded;
+} Tab;
 
-/* //migrated to pocketmage_oled.h
-// <OLEDFunc.cpp> 
-void oledWord(String word, bool allowLarge = false, bool showInfo = true);
-void oledLine(String line, bool doProgressBar = true, String bottomMsg = "");
-void oledScroll();
-void infoBar();
-*/
-
-/* // migrated to pocketmage_eink.h
-// <einkFunc.cpp>
-void refresh();
-void statusBar(String input, bool fullWindow = false);
-void einkTextPartial(String text, bool noRefresh = false);
-int  countLines(String input, size_t maxLineLength = 29);
-void einkTextDynamic(bool doFull_, bool noRefresh = false);
-void setTXTFont(const GFXfont *font);
-void setFastFullRefresh(bool setting);
-void drawStatusBar(String input);
-void multiPassRefresh(int passes);
-*/
-
-// <PocketMage>
-void einkHandler(void *parameter); // moved from EinkFunc.cpp
-void applicationEinkHandler();
-void processKB();
-
-
-// ===================== CALC APP =====================
-// max refreshes before a full refresh is forced (change with caution)
-#define REFRESH_MAX_CALC 5
-#define SCROLL_MAX 8
-#define SCROLL_MED 4
-#define SCROLL_SML 2
-#define FRAME_TOP 32                                  // top for large calc frame
-#define FRAME_LEFT 10                                 // left for large calc frame
-#define FRAME_RIGHT 10                                // right for large calc frame
-#define FRAME_BOTTOM 32                               // bottom for large calc frame
-enum CALCState { CALC0, CALC1, CALC2, CALC3, CALC4, CALCFONT };
-struct Unit {
-    const char* name;  
-    const char* symbol;  
-    // factor * (value + offset) = convert from in to basis unit
-    // (inBase / to.factor) - to.offset  = convert from basis unit to output unit
-    double factor;         
-    double offset;         
+// Browser state
+enum BROWSERState {
+    BROWSER_VIEW = 0,
+    BROWSER_URL_INPUT,
+    BROWSER_TAB_SELECT,
+    BROWSER_BOOKMARKS,
+    BROWSER_HELP
 };
-struct UnitSet {
-  const char* category;
-  const Unit* data;
-  size_t      size;
-};
-extern Unit emptyUnit;
-extern CALCState CurrentCALCState;
+
+// Browser memory buffer for CURL
+typedef struct {
+    char *data;
+    size_t size;
+} MemoryBuffer;
+
+// Browser globals
+extern Tab tabs[MAX_TABS];
+extern int tab_count;
+extern int active_tab;
+extern String current_url;
+extern String current_line;
+extern volatile bool doFull;
+extern BROWSERState CurrentBROWSERState;
+extern int browserSwitchedStates;
 extern int refresh_count;
-extern String cleanExpression;
-extern String calculatedResult;
-extern int calcSwitchedStates;
-extern String prevLine;
-extern std::map<String, double> variables;
-extern const char* operatorsCalc[];
-extern const size_t operatorsCalcCount;
-struct OpEntry { const char* token; uint8_t prec; bool rightAssoc; };
-extern const OpEntry OPS[];
-extern const size_t OPS_N;
-extern const char* functionsCalc[];
-extern const size_t functionsCalcCount;
-extern const char* constantsCalc[];
-extern const size_t constantsCalcCount;
-extern std::vector<String> prevTokens;
-extern int trigType;
 
-// ===================== FRAME CLASS =====================
-# define MAX_FRAMES 100
-# define X_OFFSET 4
+// ===================== FRAME SYSTEM =====================
+#define MAX_FRAMES 100
+#define X_OFFSET 4
+#define FRAME_TOP 32                                  
+#define FRAME_LEFT 10                                 
+#define FRAME_RIGHT 10                                
+#define FRAME_BOTTOM 32                               
+
 #pragma region textSource
 // bit flags for alignment or future options
 enum LineFlags : uint8_t { LF_NONE=0, LF_RIGHT= 1<<0, LF_CENTER= 1<<1 };
@@ -332,6 +270,7 @@ struct FixedArenaSource : TextSource {
     return true;
   }
 };
+
 struct ProgmemTableSource : TextSource {
   // table is a PROGMEM array of PROGMEM pointers to '\0'-terminated strings
   const char* const* table; // PROGMEM
@@ -349,73 +288,23 @@ struct ProgmemTableSource : TextSource {
   }
 };
 
-extern const char* const HELP_LINES[] PROGMEM;
-extern const size_t HELP_COUNT;
-extern const char* const UNIT_TYPES_LINES[] PROGMEM;
-extern const size_t UNIT_TYPES_COUNT;
-extern const char* const CONV_DIR_LINES[] PROGMEM;
-extern const size_t CONV_DIR_COUNT;
-extern const char* const CONV_LENGTH_LINES[] PROGMEM;
-extern const size_t CONV_LENGTH_COUNT;
-extern const char* const CONV_AREA_LINES[] PROGMEM;
-extern const size_t CONV_AREA_COUNT;
-extern const char* const CONV_VOLUME_LINES[] PROGMEM;
-extern const size_t CONV_VOLUME_COUNT;
-extern const char* const CONV_MASS_LINES[] PROGMEM;
-extern const size_t CONV_MASS_COUNT;
-extern const char* const CONV_TEMPERATURE_LINES[] PROGMEM;
-extern const size_t CONV_TEMPERATURE_COUNT;
-extern const char* const CONV_ENERGY_LINES[] PROGMEM;
-extern const size_t CONV_ENERGY_COUNT;
-extern const char* const CONV_SPEED_LINES[] PROGMEM;
-extern const size_t CONV_SPEED_COUNT;
-extern const char* const CONV_PRESSURE_LINES[] PROGMEM;
-extern const size_t CONV_PRESSURE_COUNT;
-extern const char* const CONV_DATA_LINES[] PROGMEM;
-extern const size_t CONV_DATA_COUNT;
-extern const char* const CONV_ANGLE_LINES[] PROGMEM;
-extern const size_t CONV_ANGLE_COUNT;
-extern const char* const CONV_TIME_LINES[] PROGMEM;
-extern const size_t CONV_TIME_COUNT;
-extern const char* const CONV_POWER_LINES[] PROGMEM;
-extern const size_t CONV_POWER_COUNT;
-extern const char* const CONV_FORCE_LINES[] PROGMEM;
-extern const size_t CONV_FORCE_COUNT;
-extern const char* const CONV_FREQUENCY_LINES[] PROGMEM;
-extern const size_t CONV_FREQUENCY_COUNT;
+// Browser help text
+extern const char* const BROWSER_HELP_LINES[] PROGMEM;
+extern const size_t BROWSER_HELP_COUNT;
+extern const char* const BROWSER_BOOKMARKS_LINES[] PROGMEM;
+extern const size_t BROWSER_BOOKMARKS_COUNT;
+extern const char* const BROWSER_STATUS_LINES[] PROGMEM;
+extern const size_t BROWSER_STATUS_COUNT;
 
-
-
-extern const UnitSet UnitCatalog[];
-extern const size_t  UnitCatalogCount;
-
-extern const ProgmemTableSource* const allUnitLists[];
-extern const size_t              AllUnitListsCount;
-
-extern const UnitSet* CurrentUnitSet;
-extern const ProgmemTableSource* CurrentUnitListSrc;
-
-extern FixedArenaSource<512, 16384> calcLines;
-extern ProgmemTableSource helpSrc;
-extern ProgmemTableSource unitTypesSrc;
-extern ProgmemTableSource convDirSrc;
-extern ProgmemTableSource convLengthSrc;
-extern ProgmemTableSource convAreaSrc;
-extern ProgmemTableSource convVolumeSrc;
-extern ProgmemTableSource convMassSrc;
-extern ProgmemTableSource convTemperatureSrc;
-extern ProgmemTableSource convEnergySrc;
-extern ProgmemTableSource convSpeedSrc;
-extern ProgmemTableSource convPressureSrc;
-extern ProgmemTableSource convDataSrc;
-extern ProgmemTableSource convAngleSrc;
-extern ProgmemTableSource convTimeSrc;
-extern ProgmemTableSource convPowerSrc;
-extern ProgmemTableSource convForceSrc;
-extern ProgmemTableSource convFrequencySrc;
-extern const UnitSet* CurrentUnitSet; 
-
+// Browser data sources
+extern FixedArenaSource<512, 16384> browserLines;
+extern FixedArenaSource<256, 4096> tabLines;
+extern FixedArenaSource<128, 2048> urlLines;
+extern ProgmemTableSource browserHelpSrc;
+extern ProgmemTableSource browserBookmarksSrc;
+extern ProgmemTableSource browserStatusSrc;
 #pragma endregion
+
 #pragma region frameSetup
 class Frame {
 public:
@@ -434,7 +323,6 @@ public:
   bool invert   = false;
   bool overlap  = false;
 
-
   int   choice     = -1;
   long  scroll     = 0;
   long  prevScroll = -1;
@@ -447,8 +335,6 @@ public:
   const uint8_t* bitmap    = nullptr;  // for bitmap frames
   const GFXfont *font = (GFXfont *)&FreeSerif9pt7b;
 
-  
-  const Unit *unit = nullptr;
   // base constructor for common fields
   Frame(int left, int right, int top, int bottom, 
         bool cursor=false, bool box=false)
@@ -478,18 +364,13 @@ public:
   bool hasText()   const { return kind == Kind::text   && source; }
   bool hasBitmap() const { return kind == Kind::bitmap && bitmap; }
 };
-extern Frame calcScreen;
-extern Frame conversionScreen;
+
+// Browser frames
+extern Frame browserScreen;
+extern Frame tabScreen;
+extern Frame urlScreen;
+extern Frame bookmarkScreen;
 extern Frame helpScreen;
-extern Frame conversionUnit;
-extern Frame conversionDirection;
-extern Frame conversionFrameA;
-extern Frame conversionFrameB;
-extern Frame conversionTypes;
-extern Frame testBitmapScreen;
-extern Frame testBitmapScreen1;
-extern Frame testBitmapScreen2;
-extern Frame testTextScreen;
 extern Frame *CurrentFrameState;
 extern int currentFrameChoice;
 extern int frameSelection;
@@ -497,13 +378,9 @@ extern std::vector<Frame*> frames;
 #pragma endregion
 
 // ===================== FUNCTION PROTOTYPES =====================
-// <sysFunc.cpp>
-// SYSTEM
-// migrate to pocketmage_sys (planned)
+// System functions
 void checkTimeout();
 void PWR_BTN_irq();
-//void TCA8418_irq(); // migrated to pocketmage_keypad.h
-//char updateKeypress(); // migrated to pocketmage_keypad.h
 void printDebug();
 String vectorToString();
 void stringToVector(String inputText);
@@ -525,65 +402,19 @@ int stringToInt(String str);
 void updateScrollFromTouch();
 void setTimeFromString(String timeStr);
 
-/* //migrated to pocketmage_sd.h
-// microSD
-void listDir(fs::FS &fs, const char *dirname);
-void readFile(fs::FS &fs, const char *path);
-String readFileToString(fs::FS &fs, const char *path);
-void writeFile(fs::FS &fs, const char *path, const char *message);
-void appendFile(fs::FS &fs, const char *path, const char *message);
-void renameFile(fs::FS &fs, const char *path1, const char *path2);
-void deleteFile(fs::FS &fs, const char *path);
-*/
-
-/* //migrated to pocketmage_oled.h
-// <OLEDFunc.cpp> 
-void oledWord(String word, bool allowLarge = false, bool showInfo = true);
-void oledLine(String line, bool doProgressBar = true, String bottomMsg = "");
-void oledScroll();
-void infoBar();
-*/
-
-/* // migrated to pocketmage_eink.h
-// <einkFunc.cpp>
-void refresh();
-void statusBar(String input, bool fullWindow = false);
-void einkTextPartial(String text, bool noRefresh = false);
-int  countLines(String input, size_t maxLineLength = 29);
-void einkTextDynamic(bool doFull_, bool noRefresh = false);
-void setTXTFont(const GFXfont *font);
-void setFastFullRefresh(bool setting);
-void drawStatusBar(String input);
-void multiPassRefresh(int passes);
-*/
-
-// <FILEWIZ.cpp>
+// App functions
 void FILEWIZ_INIT();
 void processKB_FILEWIZ();
 void einkHandler_FILEWIZ();
 
-// <TXT.cpp>
 void TXT_INIT();
 void processKB_TXT_NEW();
 void einkHandler_TXT_NEW();
 
-// <CALC.cpp>
-
-void einkHandler_CALC();
-void processKB_CALC();
-void CALC_INIT();
-  // algorithms NOTE: exposed for other apps if needed
-std::deque<String> convertToRPN(String expression);
-String evaluateRPN(std::deque<String> rpnQueue,const Unit *convA,const Unit *convB);
-std::vector<String> tokenize(const String& expression);
-
-
-// <HOME.cpp>
 void HOME_INIT();
 void einkHandler_HOME();
 void processKB_HOME();
 
-// <TASKS.cpp>
 void TASKS_INIT();
 void sortTasksByDueDate(std::vector<std::vector<String>> &tasks);
 void updateTaskArray();
@@ -611,6 +442,30 @@ void JOURNAL_INIT();
 void processKB_JOURNAL();
 void einkHandler_JOURNAL();
 
+// Browser functions
+void BROWSER_INIT();
+void processKB_BROWSER();
+void einkHandler_BROWSER();
+char* download_html(const String& url);
+String extract_title(lxb_html_document_t *document);
+void extract_content(lxb_html_document_t *document, String &content);
+bool load_url(const String& url, int tab_index);
+void update_browser_display();
+void update_tab_display();
+void update_url_display();
+void update_bookmark_display();
+void update_help_display();
+void browserAppend(const String& s);
+void tabAppend(const String& s);
+void urlAppend(const String& s);
+void browserClear();
+void tabClear();
+void urlClear();
+void closeBrowser();
+void drawBrowser();
+void browserCRInput();
+static size_t http_write_callback(void *contents, size_t size, size_t nmemb, void *userp);
+
 // <PocketMage>
 void einkHandler(void *parameter); // moved from EinkFunc.cpp
 void applicationEinkHandler();
@@ -624,16 +479,12 @@ std::vector<String> formatText(Frame &frame,int maxTextWidth);
 void drawLineInFrame(String &srcLine, int lineIndex, Frame &frame, int usableY, bool clearLine, bool isPartial);
 void drawFrameBox(int usableX, int usableY, int usableWidth, int usableHeight,bool invert);
 int computeCursorX(Frame &frame, bool rightAlign, bool centerAlign, int16_t x1, uint16_t lineWidth);
-  // String formatting
 static size_t sliceThatFits(const char* s, size_t n, int maxTextWidth);
 std::vector<String> sourceToVector(const TextSource* src);
 String frameChoiceString(const Frame& f);  
-  //scroll
-void updateScroll(Frame *currentFrameState,int prevScroll,int currentScroll, bool reset = false);
+void updateScroll(Frame *currentFrameState, int prevScroll, int currentScroll, bool reset = false);
 void updateScrollFromTouch_Frame();
 void oledScrollFrame(); 
-//void updateScroll(Frame *currentFrameState,int prevScroll,int currentScroll, bool reset);
 void getVisibleRange(Frame *f, long totalLines, long &startLine, long &endLine);
-
 
 #endif // GLOBALS_H
