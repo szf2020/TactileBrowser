@@ -15,3 +15,9 @@
 [submodule "tactility-src/main/lexbor"]
 	path = tactility-src/main/lexbor
 	url = https://github.com/lexbor/lexbor.git
+[submodule "pocketmage-src/lib/lvgl"]
+	path = pocketmage-src/lib/lvgl
+	url = https://github.com/lvgl/lvgl.git
+[submodule "pocketmage-src/lib/lexbor"]
+	path = pocketmage-src/lib/lexbor
+	url = https://github.com/lexbor/lexbor.git
