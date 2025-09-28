@@ -13,7 +13,7 @@ Use this for ESP-IDF
 This will use, eventually, Elk for the desktop version and Duktape for the ESP32 version for JS.
 
 ## Building
-You have to build SDL2 for Apple Silicon and Intel from source in order to build the Mac version. A premade binary will be added to the main build soon, but meanwhile take a look at the autobuild.yml for how to build.
+You have to build SDL2 for Apple Silicon and Intel from source in order to build the Mac version. A premade binary will be added to the main build soon, but meanwhile take a look at the desktop/action.yml for how to build.
 
 ## Star History
 
