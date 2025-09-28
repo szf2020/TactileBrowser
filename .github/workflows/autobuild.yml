@@ -12,7 +12,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Build Desktop Universal Binary
-        uses: ./.github/actions/desktop/desktop_build.yml
+        uses: ./.github/actions/desktop
         with:
           upload_artifact: 'true'
 
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build PocketMage firmware
-        uses: ./.github/actions/pocketmage/pocketmage_build.yml
+        uses: ./.github/actions/pocketmage
         with:
           upload_artifact: 'true'
 
@@ -30,6 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build Tactility app
-        uses: ./.github/actions/tactility/tactility_build.yml
+        uses: ./.github/actions/tactility
         with:
           upload_artifact: 'true'
