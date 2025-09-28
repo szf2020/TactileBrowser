@@ -6,12 +6,6 @@ inputs:
     required: false
     default: 'true'
 
-env:
-  SDL2_SRC_DIR: ./sdl2-source
-  SDL2_BUILD_DIR_X86: ./sdl2-build-x86_64
-  SDL2_BUILD_DIR_ARM: ./sdl2-build-arm64
-  SDL2_UNIVERSAL_DIR: ./sdl2-universal
-
 runs:
   using: "composite"
   steps:
@@ -47,12 +41,12 @@ runs:
       shell: bash
       if: steps.cache-sdl2-builds.outputs.cache-hit != 'true'
       run: |
-        mkdir -p $SDL2_BUILD_DIR_X86
-        cd $SDL2_BUILD_DIR_X86
-        cmake $SDL2_SRC_DIR \
+        mkdir -p ./sdl2-build-x86_64
+        cd ./sdl2-build-x86_64
+        cmake ./sdl2-source \
           -DCMAKE_OSX_ARCHITECTURES=x86_64 \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$SDL2_BUILD_DIR_X86/install
+          -DCMAKE_INSTALL_PREFIX=./sdl2-build-x86_64/install
         make
         make install
 
@@ -60,12 +54,12 @@ runs:
       shell: bash
       if: steps.cache-sdl2-builds.outputs.cache-hit != 'true'
       run: |
-        mkdir -p $SDL2_BUILD_DIR_ARM
-        cd $SDL2_BUILD_DIR_ARM
-        cmake $SDL2_SRC_DIR \
+        mkdir -p ./sdl2-build-arm64
+        cd ./sdl2-build-arm64
+        cmake ./sdl2-source \
           -DCMAKE_OSX_ARCHITECTURES=arm64 \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$SDL2_BUILD_DIR_ARM/install
+          -DCMAKE_INSTALL_PREFIX=./sdl2-build-arm64/install
         make
         make install
 
@@ -74,55 +68,55 @@ runs:
       shell: bash
       run: |
         echo "Checking for SDL2 dylibs..."
-        if [ -f "$SDL2_BUILD_DIR_X86/install/lib/libSDL2-2.0.0.dylib" ]; then
+        if [ -f "./sdl2-build-x86_64/install/lib/libSDL2-2.0.0.dylib" ]; then
           echo "✓ x86_64 SDL2 dylib found"
-          ls -la "$SDL2_BUILD_DIR_X86/install/lib/"
-        elif [ -f "$SDL2_BUILD_DIR_X86/install/lib/libSDL2.dylib" ]; then
+          ls -la "./sdl2-build-x86_64/install/lib/"
+        elif [ -f "./sdl2-build-x86_64/install/lib/libSDL2.dylib" ]; then
           echo "✓ x86_64 SDL2 dylib found (generic name)"
-          ls -la "$SDL2_BUILD_DIR_X86/install/lib/"
+          ls -la "./sdl2-build-x86_64/install/lib/"
         else
           echo "✗ x86_64 SDL2 dylib NOT found"
           echo "Contents of x86_64 build directory:"
-          find "$SDL2_BUILD_DIR_X86" -name "*.dylib" 2>/dev/null || echo "No dylibs found"
+          find "./sdl2-build-x86_64" -name "*.dylib" 2>/dev/null || echo "No dylibs found"
         fi
 
-        if [ -f "$SDL2_BUILD_DIR_ARM/install/lib/libSDL2-2.0.0.dylib" ]; then
+        if [ -f "./sdl2-build-arm64/install/lib/libSDL2-2.0.0.dylib" ]; then
           echo "✓ arm64 SDL2 dylib found"
-          ls -la "$SDL2_BUILD_DIR_ARM/install/lib/"
-        elif [ -f "$SDL2_BUILD_DIR_ARM/install/lib/libSDL2.dylib" ]; then
+          ls -la "./sdl2-build-arm64/install/lib/"
+        elif [ -f "./sdl2-build-arm64/install/lib/libSDL2.dylib" ]; then
           echo "✓ arm64 SDL2 dylib found (generic name)"
-          ls -la "$SDL2_BUILD_DIR_ARM/install/lib/"
+          ls -la "./sdl2-build-arm64/install/lib/"
         else
           echo "✗ arm64 SDL2 dylib NOT found"
           echo "Contents of arm64 build directory:"
-          find "$SDL2_BUILD_DIR_ARM" -name "*.dylib" 2>/dev/null || echo "No dylibs found"
+          find "./sdl2-build-arm64" -name "*.dylib" 2>/dev/null || echo "No dylibs found"
         fi
 
     - name: Create universal SDL2 dylib and setup headers
       shell: bash
       run: |
-        mkdir -p $SDL2_UNIVERSAL_DIR/lib
-        mkdir -p $SDL2_UNIVERSAL_DIR/include/SDL2
+        mkdir -p ./sdl2-universal/lib
+        mkdir -p ./sdl2-universal/include/SDL2
 
         # Determine the actual SDL2 dylib filenames
         SDL2_X86_DYLIB=""
         SDL2_ARM_DYLIB=""
 
         # Check for different possible SDL2 dylib names
-        if [ -f "$SDL2_BUILD_DIR_X86/install/lib/libSDL2-2.0.0.dylib" ]; then
-          SDL2_X86_DYLIB="$SDL2_BUILD_DIR_X86/install/lib/libSDL2-2.0.0.dylib"
-        elif [ -f "$SDL2_BUILD_DIR_X86/install/lib/libSDL2.dylib" ]; then
-          SDL2_X86_DYLIB="$SDL2_BUILD_DIR_X86/install/lib/libSDL2.dylib"
-        elif [ -f "$SDL2_BUILD_DIR_X86/libSDL2.dylib" ]; then
-          SDL2_X86_DYLIB="$SDL2_BUILD_DIR_X86/libSDL2.dylib"
+        if [ -f "./sdl2-build-x86_64/install/lib/libSDL2-2.0.0.dylib" ]; then
+          SDL2_X86_DYLIB="./sdl2-build-x86_64/install/lib/libSDL2-2.0.0.dylib"
+        elif [ -f "./sdl2-build-x86_64/install/lib/libSDL2.dylib" ]; then
+          SDL2_X86_DYLIB="./sdl2-build-x86_64/install/lib/libSDL2.dylib"
+        elif [ -f "./sdl2-build-x86_64/libSDL2.dylib" ]; then
+          SDL2_X86_DYLIB="./sdl2-build-x86_64/libSDL2.dylib"
         fi
 
-        if [ -f "$SDL2_BUILD_DIR_ARM/install/lib/libSDL2-2.0.0.dylib" ]; then
-          SDL2_ARM_DYLIB="$SDL2_BUILD_DIR_ARM/install/lib/libSDL2-2.0.0.dylib"
-        elif [ -f "$SDL2_BUILD_DIR_ARM/install/lib/libSDL2.dylib" ]; then
-          SDL2_ARM_DYLIB="$SDL2_BUILD_DIR_ARM/install/lib/libSDL2.dylib"
-        elif [ -f "$SDL2_BUILD_DIR_ARM/libSDL2.dylib" ]; then
-          SDL2_ARM_DYLIB="$SDL2_BUILD_DIR_ARM/libSDL2.dylib"
+        if [ -f "./sdl2-build-arm64/install/lib/libSDL2-2.0.0.dylib" ]; then
+          SDL2_ARM_DYLIB="./sdl2-build-arm64/install/lib/libSDL2-2.0.0.dylib"
+        elif [ -f "./sdl2-build-arm64/install/lib/libSDL2.dylib" ]; then
+          SDL2_ARM_DYLIB="./sdl2-build-arm64/install/lib/libSDL2.dylib"
+        elif [ -f "./sdl2-build-arm64/libSDL2.dylib" ]; then
+          SDL2_ARM_DYLIB="./sdl2-build-arm64/libSDL2.dylib"
         fi
 
         # Check if both dylibs were found
@@ -139,22 +133,22 @@ runs:
         lipo -create \
           "$SDL2_X86_DYLIB" \
           "$SDL2_ARM_DYLIB" \
-          -output $SDL2_UNIVERSAL_DIR/lib/libSDL2.dylib
+          -output ./sdl2-universal/lib/libSDL2.dylib
 
-        echo "Universal SDL2 dylib created at $SDL2_UNIVERSAL_DIR/lib/libSDL2.dylib"
+        echo "Universal SDL2 dylib created at ./sdl2-universal/lib/libSDL2.dylib"
 
         # Create additional symlinks for compatibility
-        cd $SDL2_UNIVERSAL_DIR/lib
+        cd ./sdl2-universal/lib
         ln -sf libSDL2.dylib libSDL2-2.0.0.dylib
         ln -sf libSDL2.dylib libSDL2-2.0.dylib
 
         # Copy SDL2 headers to both expected locations
         # Copy to SDL2/ subdirectory for LVGL
-        cp -r $SDL2_SRC_DIR/include/* $SDL2_UNIVERSAL_DIR/include/SDL2/
+        cp -r ./sdl2-source/include/* ./sdl2-universal/include/SDL2/
         # Also copy to root include for direct access
-        cp -r $SDL2_SRC_DIR/include/* $SDL2_UNIVERSAL_DIR/include/
+        cp -r ./sdl2-source/include/* ./sdl2-universal/include/
 
-        echo "SDL2 headers copied to both $SDL2_UNIVERSAL_DIR/include/ and $SDL2_UNIVERSAL_DIR/include/SDL2/"
+        echo "SDL2 headers copied to both ./sdl2-universal/include/ and ./sdl2-universal/include/SDL2/"
 
     - name: Cache CMake build files
       uses: actions/cache@v3
@@ -179,8 +173,8 @@ runs:
       working-directory: desktop-src
       run: |
         cmake . -DCMAKE_BUILD_TYPE=Debug \
-                -DSDL2_LIBRARY=$SDL2_UNIVERSAL_DIR/lib/libSDL2.dylib \
-                -DSDL2_INCLUDE_DIR=$SDL2_UNIVERSAL_DIR/include
+                -DSDL2_LIBRARY=../sdl2-universal/lib/libSDL2.dylib \
+                -DSDL2_INCLUDE_DIR=../sdl2-universal/include
         make
 
     - name: Bundle SDL2 dylib with app and fix paths
@@ -191,7 +185,7 @@ runs:
         mkdir -p main/TactileBrowser.app/Contents/Frameworks
 
         # Copy SDL2 dylib to the app bundle
-        cp $SDL2_UNIVERSAL_DIR/lib/libSDL2.dylib main/TactileBrowser.app/Contents/Frameworks/
+        cp ../sdl2-universal/lib/libSDL2.dylib main/TactileBrowser.app/Contents/Frameworks/
 
         # Also create the versioned dylib that the app expects
         cd main/TactileBrowser.app/Contents/Frameworks/

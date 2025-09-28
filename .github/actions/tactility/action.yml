@@ -26,7 +26,7 @@ runs:
         path: ./tactility-src
         command: 'python tactility.py build --no-animations --local-sdk'
       env:
-        TACTILITY_SDK_PATH: ./tactility-src/.tactility/latest-custom-sdk
+        TACTILITY_SDK_PATH: ./.tactility/latest-custom-sdk
     - name: 'Build with Default SDK'
       if: inputs.use_custom_sdk != 'true'
       uses: espressif/esp-idf-ci-action@v1
