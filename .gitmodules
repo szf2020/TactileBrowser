@@ -17,4 +17,4 @@
 	url = https://github.com/lexbor/lexbor.git
 [submodule "pocketmage-src/lib/lexbor"]
 	path = pocketmage-src/lib/lexbor
-	url = https://github.com/lexbor/lexbor
+	url = https://github.com/NellowTCS/lexbor.git

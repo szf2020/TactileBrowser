@@ -9,28 +9,7 @@ static constexpr const char* TAG = "BROWSER";
 #define MAX_TABS 5
 #define MAX_URL_LENGTH 512
 
-// Global variables
-Tab tabs[MAX_TABS];          // define storage for extern
-int tab_count = 0;
-int active_tab = 0;
-String current_url = "";
-String current_line = "";
-volatile bool doFull = false;
-
-BROWSERState CurrentBROWSERState = BROWSER_VIEW;
-
-// Frame sources for display
-FixedArenaSource<512, 16384> browserLines;
-FixedArenaSource<256, 4096> tabLines;
-FixedArenaSource<128, 2048> urlLines;
-
-// Frames
-Frame browserScreen(FRAME_LEFT, FRAME_RIGHT, FRAME_TOP, FRAME_BOTTOM, &browserLines, false, true);
-Frame tabScreen(FRAME_LEFT, FRAME_RIGHT, FRAME_TOP, FRAME_BOTTOM + 150, &tabLines, false, true);
-Frame urlScreen(FRAME_LEFT, FRAME_RIGHT, FRAME_TOP + 150, FRAME_BOTTOM, &urlLines, false, false);
-
-Frame *CurrentFrameState = &browserScreen;
-std::vector<Frame*> frames = {};
+// Global variables are defined in globals.cpp
 
 #pragma region helpers
 // CURL write callback

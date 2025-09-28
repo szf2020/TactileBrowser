@@ -1,0 +1,27 @@
+name: 'Build Tactility (ESP-IDF)'
+
+inputs:
+  upload_artifact:
+    description: 'Whether to upload the built app artifact'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: 'Build'
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: v5.5
+        path: ./tactility-src
+        command: 'python tactility.py build'
+    - name: 'Upload Artifact'
+      if: inputs.upload_artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: TactileBrowser_esp
+        path: tactility-src/build/TactileBrowser.app
+        retention-days: 30
