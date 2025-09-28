@@ -137,11 +137,6 @@ runs:
 
         echo "Universal SDL2 dylib created at ./sdl2-universal/lib/libSDL2.dylib"
 
-        # Create additional symlinks for compatibility
-        cd ./sdl2-universal/lib
-        ln -sf libSDL2.dylib libSDL2-2.0.0.dylib
-        ln -sf libSDL2.dylib libSDL2-2.0.dylib
-
         # Copy SDL2 headers to both expected locations
         # Copy to SDL2/ subdirectory for LVGL
         cp -r ./sdl2-source/include/* ./sdl2-universal/include/SDL2/
@@ -149,6 +144,11 @@ runs:
         cp -r ./sdl2-source/include/* ./sdl2-universal/include/
 
         echo "SDL2 headers copied to both ./sdl2-universal/include/ and ./sdl2-universal/include/SDL2/"
+
+        # Create additional symlinks for compatibility
+        cd ./sdl2-universal/lib
+        ln -sf libSDL2.dylib libSDL2-2.0.0.dylib
+        ln -sf libSDL2.dylib libSDL2-2.0.dylib
 
     - name: Cache CMake build files
       uses: actions/cache@v3
