@@ -47,6 +47,11 @@ endif()
 set(LV_USE_SDL ON CACHE BOOL "Use SDL2 driver for LVGL")
 set(LV_USE_DRAW_SDL ON CACHE BOOL "Use SDL2 for drawing")
 
+# Set SDL2 cache variables for LVGL's find_package
+set(SDL2_FOUND TRUE CACHE BOOL "" FORCE)
+set(SDL2_INCLUDE_DIRS ${SDL2_INCLUDE_DIRS} CACHE STRING "" FORCE)
+set(SDL2_LIBRARIES ${SDL2_LIBRARIES} CACHE STRING "" FORCE)
+
 add_subdirectory(lvgl EXCLUDE_FROM_ALL)
 target_include_directories(lvgl PUBLIC ${SDL2_INCLUDE_DIRS})
 target_link_libraries(lvgl PUBLIC ${SDL2_LIBRARIES})

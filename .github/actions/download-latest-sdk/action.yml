@@ -23,7 +23,7 @@ runs:
           "https://api.github.com/repos/NellowTCS/Tactility/actions/runs/${{ steps.get-run.outputs.run_id }}/artifacts")
         echo "$response" > artifacts.json
 
-    - name: Download and unzip TactilitySDK-esp32.zip
+    - name: Download and unzip TactilitySDK-esp32
       shell: bash
       run: |
         artifacts=$(cat artifacts.json)
@@ -31,15 +31,14 @@ runs:
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip -q temp.zip -d temp_dir
-          mv temp_dir/TactilitySDK/* tactility-src/.tactility/latest-custom-sdk/esp32/
-          rm -rf temp_dir
+          unzip -q temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32
+          rm temp.zip
         else
           echo "TactilitySDK-esp32 not found"
           exit 1
         fi
 
-    - name: Download and unzip TactilitySDK-esp32s3.zip
+    - name: Download and unzip TactilitySDK-esp32s3
       shell: bash
       run: |
         artifacts=$(cat artifacts.json)
@@ -47,9 +46,8 @@ runs:
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32s3
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip -q temp.zip -d temp_dir
-          mv temp_dir/TactilitySDK/* tactility-src/.tactility/latest-custom-sdk/esp32s3/
-          rm -rf temp_dir
+          unzip -q temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32s3
+          rm temp.zip
         else
           echo "TactilitySDK-esp32s3 not found"
           exit 1
