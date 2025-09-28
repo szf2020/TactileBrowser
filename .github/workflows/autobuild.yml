@@ -11,6 +11,10 @@ jobs:
     name: Build Desktop Universal Binary (macOS)
     runs-on: macos-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Build Desktop Universal Binary
         uses: ./.github/actions/desktop
         with:
@@ -20,6 +24,10 @@ jobs:
     name: Build PocketMage (ESP32-S3)
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Build PocketMage firmware
         uses: ./.github/actions/pocketmage
         with:
@@ -29,6 +37,10 @@ jobs:
     name: Build Tactility (ESP-IDF)
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Build Tactility app
         uses: ./.github/actions/tactility
         with:

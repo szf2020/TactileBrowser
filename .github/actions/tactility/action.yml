@@ -9,9 +9,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - name: 'Build'
       uses: espressif/esp-idf-ci-action@v1
       with:
