@@ -27,14 +27,15 @@ runs:
       shell: bash
       run: |
         artifacts=$(cat artifacts.json)
-        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32.zip") | .archive_download_url')
+        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32") | .archive_download_url')
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32
-          rm temp.zip
+          unzip -q temp.zip -d temp_dir
+          mv temp_dir/TactilitySDK/* tactility-src/.tactility/latest-custom-sdk/esp32/
+          rm -rf temp_dir
         else
-          echo "TactilitySDK-esp32.zip not found"
+          echo "TactilitySDK-esp32 not found"
           exit 1
         fi
 
@@ -42,14 +43,15 @@ runs:
       shell: bash
       run: |
         artifacts=$(cat artifacts.json)
-        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32s3.zip") | .archive_download_url')
+        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32s3") | .archive_download_url')
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32s3
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32s3
-          rm temp.zip
+          unzip -q temp.zip -d temp_dir
+          mv temp_dir/TactilitySDK/* tactility-src/.tactility/latest-custom-sdk/esp32s3/
+          rm -rf temp_dir
         else
-          echo "TactilitySDK-esp32s3.zip not found"
+          echo "TactilitySDK-esp32s3 not found"
           exit 1
         fi
 
