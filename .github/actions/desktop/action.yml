@@ -174,7 +174,9 @@ runs:
       run: |
         cmake . -DCMAKE_BUILD_TYPE=Debug \
                 -DSDL2_LIBRARY=../sdl2-universal/lib/libSDL2.dylib \
-                -DSDL2_INCLUDE_DIR=../sdl2-universal/include
+                -DSDL2_INCLUDE_DIR=../sdl2-universal/include \
+                -DCMAKE_C_FLAGS="-I../sdl2-universal/include" \
+                -DCMAKE_CXX_FLAGS="-I../sdl2-universal/include"
         make
 
     - name: Bundle SDL2 dylib with app and fix paths

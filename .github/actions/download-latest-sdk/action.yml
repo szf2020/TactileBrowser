@@ -33,6 +33,9 @@ runs:
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
           unzip temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32
           rm temp.zip
+        else
+          echo "TactilitySDK-esp32.zip not found"
+          exit 1
         fi
 
     - name: Download and unzip TactilitySDK-esp32s3.zip
@@ -45,6 +48,9 @@ runs:
           curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
           unzip temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32s3
           rm temp.zip
+        else
+          echo "TactilitySDK-esp32s3.zip not found"
+          exit 1
         fi
 
     - name: Cleanup
