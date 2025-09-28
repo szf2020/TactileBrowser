@@ -14,13 +14,14 @@ import shutil
 import configparser
 
 ttbuild_path = ".tactility"
-ttbuild_version = "2.2.0"
+ttbuild_version = "2.3.2"
 ttbuild_cdn = "https://cdn.tactility.one"
 ttbuild_sdk_json_validity = 3600  # seconds
 ttport = 6666
 verbose = False
 use_local_sdk = False
 valid_platforms = ["esp32", "esp32s3"]
+no_animations = False
 
 spinner_pattern = [
     "⠋",
@@ -71,6 +72,7 @@ def print_help():
     print("  --local-sdk                    Use SDK specified by environment variable TACTILITY_SDK_PATH")
     print("  --skip-build                   Run everything except the idf.py/CMake commands")
     print("  --verbose                      Show extra console output")
+    print("  --no-animations                Disable animations during building (e.g. for CI jobs)")
 
 # region Core
 
@@ -313,19 +315,24 @@ def build_all(version, platforms, skip_build):
         # This can lead to code caching issues, so sometimes a clean build is required
         if find_elf_file(platform) is None:
             if not build_first(version, platform, skip_build):
-                break
+                return False
         else:
             if not build_consecutively(version, platform, skip_build):
-                break
+                return False
+    return True
 
 def wait_for_build(process, platform):
+    global no_animations
     buffer = []
     os.set_blocking(process.stdout.fileno(), False)
+    if no_animations:
+        print(f"Building for {platform}")
     while process.poll() is None:
         for i in spinner_pattern:
             time.sleep(0.1)
-            progress_text = f"Building for {platform} {shell_color_cyan}" + str(i) + shell_color_reset
-            sys.stdout.write(progress_text + "\r")
+            if not no_animations:
+                progress_text = f"Building for {platform} {shell_color_cyan}" + str(i) + shell_color_reset
+                sys.stdout.write(progress_text + "\r")
             while True:
                 line = process.stdout.readline()
                 decoded_line = line.decode("UTF-8")
@@ -461,9 +468,9 @@ def build_action(manifest, platform_arg):
         validate_version_and_platforms(sdk_json, sdk_version, platforms_to_build)
         if not sdk_download_all(sdk_version, platforms_to_build):
             exit_with_error("Failed to download one or more SDKs")
-    build_all(sdk_version, platforms_to_build, skip_build)  # Environment validation
-    if not skip_build:
-        package_all(platforms_to_build)
+    if build_all(sdk_version, platforms_to_build, skip_build):  # Environment validation
+        if not skip_build:
+            package_all(platforms_to_build)
 
 def clean_action():
     if os.path.exists("build"):
@@ -562,10 +569,21 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         print_help()
         sys.exit()
+    if "--verbose" in sys.argv:
+        verbose = True
+        sys.argv.remove("--verbose")
+    skip_build = False
+    if "--skip-build" in sys.argv:
+        skip_build = True
+        sys.argv.remove("--skip-build")
+    if "--local-sdk" in sys.argv:
+        use_local_sdk = True
+        sys.argv.remove("--local-sdk")
+    if "--no-animations" in sys.argv:
+        no_animations = True
+        sys.argv.remove("--no-animations")
     action_arg = sys.argv[1]
-    verbose = "--verbose" in sys.argv
-    skip_build = "--skip-build" in sys.argv
-    use_local_sdk = "--local-sdk" in sys.argv
+
     # Environment setup
     setup_environment()
     if not os.path.isfile("manifest.properties"):

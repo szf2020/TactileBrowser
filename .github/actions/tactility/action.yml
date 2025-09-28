@@ -14,7 +14,7 @@ runs:
       with:
         esp_idf_version: v5.5
         path: ./tactility-src
-        command: 'python tactility.py build'
+        command: 'python tactility.py build --no-animations'
     - name: 'Upload Artifact'
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4

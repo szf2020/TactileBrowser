@@ -6,6 +6,12 @@ inputs:
     required: false
     default: 'true'
 
+env:
+  SDL2_SRC_DIR: ${{ github.workspace }}/sdl2-source
+  SDL2_BUILD_DIR_X86: ${{ github.workspace }}/sdl2-build-x86_64
+  SDL2_BUILD_DIR_ARM: ${{ github.workspace }}/sdl2-build-arm64
+  SDL2_UNIVERSAL_DIR: ${{ github.workspace }}/sdl2-universal
+
 runs:
   using: "composite"
   steps:
