@@ -7,10 +7,10 @@ inputs:
     default: 'true'
 
 env:
-  SDL2_SRC_DIR: ${{ github.workspace }}/sdl2-source
-  SDL2_BUILD_DIR_X86: ${{ github.workspace }}/sdl2-build-x86_64
-  SDL2_BUILD_DIR_ARM: ${{ github.workspace }}/sdl2-build-arm64
-  SDL2_UNIVERSAL_DIR: ${{ github.workspace }}/sdl2-universal
+  SDL2_SRC_DIR: ./sdl2-source
+  SDL2_BUILD_DIR_X86: ./sdl2-build-x86_64
+  SDL2_BUILD_DIR_ARM: ./sdl2-build-arm64
+  SDL2_UNIVERSAL_DIR: ./sdl2-universal
 
 runs:
   using: "composite"

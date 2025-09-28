@@ -18,16 +18,15 @@ runs:
 
     - name: Get artifacts
       shell: bash
-      id: get-artifacts
       run: |
         response=$(curl -s -H "Authorization: token ${{ inputs.github-token }}" \
           "https://api.github.com/repos/NellowTCS/Tactility/actions/runs/${{ steps.get-run.outputs.run_id }}/artifacts")
-        echo "artifacts=$response" >> $GITHUB_OUTPUT
+        echo "$response" > artifacts.json
 
     - name: Download and unzip TactilitySDK-esp32.zip
       shell: bash
       run: |
-        artifacts='${{ steps.get-artifacts.outputs.artifacts }}'
+        artifacts=$(cat artifacts.json)
         download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32.zip") | .archive_download_url')
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32
@@ -39,7 +38,7 @@ runs:
     - name: Download and unzip TactilitySDK-esp32s3.zip
       shell: bash
       run: |
-        artifacts='${{ steps.get-artifacts.outputs.artifacts }}'
+        artifacts=$(cat artifacts.json)
         download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32s3.zip") | .archive_download_url')
         if [ -n "$download_url" ]; then
           mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32s3
@@ -47,3 +46,7 @@ runs:
           unzip temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32s3
           rm temp.zip
         fi
+
+    - name: Cleanup
+      shell: bash
+      run: rm -f artifacts.json
