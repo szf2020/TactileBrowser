@@ -45,3 +45,4 @@ jobs:
         uses: ./.github/actions/tactility
         with:
           upload_artifact: 'true'
+          use_custom_sdk: 'true'
