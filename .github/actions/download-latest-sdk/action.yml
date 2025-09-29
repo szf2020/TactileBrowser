@@ -1,11 +1,11 @@
-name: 'Download Latest SDK'
-description: 'Download the latest Tactility SDK artifacts from GitHub Actions'
+name: "Download Latest SDK"
+description: "Download the latest Tactility SDK artifacts from GitHub Actions"
 inputs:
   github-token:
-    description: 'GitHub Personal Access Token'
+    description: "GitHub Personal Access Token"
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Get latest successful workflow run
       shell: bash
@@ -23,35 +23,25 @@ runs:
           "https://api.github.com/repos/NellowTCS/Tactility/actions/runs/${{ steps.get-run.outputs.run_id }}/artifacts")
         echo "$response" > artifacts.json
 
-    - name: Download and unzip TactilitySDK-esp32
+    - name: Download and unzip Tactility SDK artifacts
       shell: bash
       run: |
-        artifacts=$(cat artifacts.json)
-        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32") | .archive_download_url')
-        if [ -n "$download_url" ]; then
-          mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32/TactilitySDK
-          curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip -q temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32/TactilitySDK
-          rm temp.zip
-        else
-          echo "TactilitySDK-esp32 not found"
-          exit 1
-        fi
+        for platform in esp32 esp32s3; do
+          download_url=$(cat artifacts.json | jq -r ".artifacts[] | select(.name == \"TactilitySDK-${platform}\") | .archive_download_url")
+          if [ -n "$download_url" ]; then
+            temp_zip=$(mktemp)
+            curl -L -H "Authorization: token ${{ inputs.github-token }}" -o "$temp_zip" "$download_url"
 
-    - name: Download and unzip TactilitySDK-esp32s3
-      shell: bash
-      run: |
-        artifacts=$(cat artifacts.json)
-        download_url=$(echo $artifacts | jq -r '.artifacts[] | select(.name == "TactilitySDK-esp32s3") | .archive_download_url')
-        if [ -n "$download_url" ]; then
-          mkdir -p tactility-src/.tactility/latest-custom-sdk/esp32s3/TactilitySDK
-          curl -L -H "Authorization: token ${{ inputs.github-token }}" -o temp.zip "$download_url"
-          unzip -q temp.zip -d tactility-src/.tactility/latest-custom-sdk/esp32s3/TactilitySDK
-          rm temp.zip
-        else
-          echo "TactilitySDK-esp32s3 not found"
-          exit 1
-        fi
+            # Determine folder name inside the ZIP (should be versioned)
+            unzip -q -d .tactility "$temp_zip"
+
+            rm "$temp_zip"
+            echo "Downloaded and extracted TactilitySDK-$platform"
+          else
+            echo "TactilitySDK-$platform not found"
+            exit 1
+          fi
+        done
 
     - name: Cleanup
       shell: bash
