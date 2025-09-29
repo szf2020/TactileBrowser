@@ -38,17 +38,9 @@ runs:
             # Extract into temporary dir
             temp_dir=$(mktemp -d)
             unzip -q "$temp_zip" -d "$temp_dir"
-
-            # Debug: List extracted contents
-            echo "Contents of extracted ZIP for $platform:"
-            ls -R "$temp_dir"
-
+            
             # Move root contents directly to target directory
             mv "$temp_dir"/* "$target_dir"/
-
-            # Debug: List final SDK directory
-            echo "Contents of $target_dir after extraction:"
-            ls -R "$target_dir"
 
             rm -rf "$temp_dir" "$temp_zip"
 
