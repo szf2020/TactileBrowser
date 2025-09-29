@@ -23,21 +23,22 @@ runs:
           "https://api.github.com/repos/NellowTCS/Tactility/actions/runs/${{ steps.get-run.outputs.run_id }}/artifacts")
         echo "$response" > artifacts.json
 
-    - name: Download and unzip Tactility SDK artifacts
+    - name: Download and extract Tactility SDK artifacts
       shell: bash
       run: |
+        VERSION="0.6.0-SNAPSHOT2"
         for platform in esp32 esp32s3; do
           download_url=$(cat artifacts.json | jq -r ".artifacts[] | select(.name == \"TactilitySDK-${platform}\") | .archive_download_url")
           if [ -n "$download_url" ]; then
             temp_zip=$(mktemp)
             curl -L -H "Authorization: token ${{ inputs.github-token }}" -o "$temp_zip" "$download_url"
 
-            # Determine folder name inside the ZIP (should be versioned)
-            # Force overwrite existing files without prompting
-            unzip -o -q "$temp_zip" -d .tactility
+            target_dir=".tactility/${VERSION}-${platform}/TactilitySDK"
+            mkdir -p "$target_dir"
+            unzip -o -q "$temp_zip" -d "$target_dir"
 
             rm "$temp_zip"
-            echo "Downloaded and extracted TactilitySDK-$platform"
+            echo "Downloaded and extracted TactilitySDK-$platform to $target_dir"
           else
             echo "TactilitySDK-$platform not found"
             exit 1
