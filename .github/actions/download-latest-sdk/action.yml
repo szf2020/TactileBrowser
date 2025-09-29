@@ -26,18 +26,24 @@ runs:
     - name: Download and extract Tactility SDK artifacts
       shell: bash
       run: |
-        VERSION="0.6.0-SNAPSHOT2"
         for platform in esp32 esp32s3; do
           download_url=$(cat artifacts.json | jq -r ".artifacts[] | select(.name == \"TactilitySDK-${platform}\") | .archive_download_url")
           if [ -n "$download_url" ]; then
             temp_zip=$(mktemp)
             curl -L -H "Authorization: token ${{ inputs.github-token }}" -o "$temp_zip" "$download_url"
 
-            target_dir=".tactility/${VERSION}-${platform}/TactilitySDK"
+            target_dir=".tactility/0.6.0-SNAPSHOT2-${platform}/TactilitySDK"
             mkdir -p "$target_dir"
-            unzip -o -q "$temp_zip" -d "$target_dir"
 
-            rm "$temp_zip"
+            # Extract into temporary dir
+            temp_dir=$(mktemp -d)
+            unzip -q "$temp_zip" -d "$temp_dir"
+
+            # Move the inner contents into the target folder
+            mv "$temp_dir"/*/* "$target_dir"/
+
+            rm -rf "$temp_dir" "$temp_zip"
+
             echo "Downloaded and extracted TactilitySDK-$platform to $target_dir"
           else
             echo "TactilitySDK-$platform not found"
