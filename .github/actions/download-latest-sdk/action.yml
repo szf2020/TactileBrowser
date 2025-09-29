@@ -33,7 +33,8 @@ runs:
             curl -L -H "Authorization: token ${{ inputs.github-token }}" -o "$temp_zip" "$download_url"
 
             # Determine folder name inside the ZIP (should be versioned)
-            unzip -q -d .tactility "$temp_zip"
+            # Force overwrite existing files without prompting
+            unzip -o -q "$temp_zip" -d .tactility
 
             rm "$temp_zip"
             echo "Downloaded and extracted TactilitySDK-$platform"
