@@ -271,23 +271,24 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
     lv_obj_set_style_text_color(loading_lbl, lv_color_hex(0x808080), 0);
     
     // HTTP client configuration
-    esp_http_client_config_t cfg = {
-        .url = url,
-        .timeout_ms = 8000,
-        .buffer_size = 1024,
-        .buffer_size_tx = 512,
-        .user_agent = "TactileBrowser/1.0"
-    };
-    
+    esp_http_client_config_t cfg = {};
+    cfg.url = url;
+    cfg.timeout_ms = 8000;
+    cfg.buffer_size = 1024;
+    cfg.buffer_size_tx = 512;
+    cfg.user_agent = "TactileBrowser/1.0";
+
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
     if (!client) {
-        lv_label_set_text(loading_lbl, "HTTP client init failed");
+        snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP client init failed");
+        lv_label_set_text(loading_lbl, text_buffer);
         return;
     }
     
     esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
-        lv_label_set_text(loading_lbl, "Connection failed");
+        snprintf(text_buffer, MAX_TEXT_BUFFER, "Connection failed: %d", err);
+        lv_label_set_text(loading_lbl, text_buffer);
         esp_http_client_cleanup(client);
         return;
     }
@@ -296,7 +297,18 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
     int status_code = esp_http_client_get_status_code(client);
     
     if (status_code != 200) {
-        snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP Error: %d", status_code);
+        switch(status_code) {
+            case 400: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 400 Bad Request"); break;
+            case 401: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 401 Unauthorized"); break;
+            case 403: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 403 Forbidden"); break;
+            case 404: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 404 Not Found"); break;
+            case 408: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 408 Request Timeout"); break;
+            case 500: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 500 Internal Server Error"); break;
+            case 502: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 502 Bad Gateway"); break;
+            case 503: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 503 Service Unavailable"); break;
+            case 504: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 504 Gateway Timeout"); break;
+            default: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP Error: %d", status_code); break;
+        }
         lv_label_set_text(loading_lbl, text_buffer);
         esp_http_client_cleanup(client);
         return;
@@ -308,7 +320,6 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
         return;
     }
     
-    // Limit content size
     if (content_length > MAX_HTML_SIZE) content_length = MAX_HTML_SIZE;
     
     int read_len = esp_http_client_read(client, html_buffer, content_length);
@@ -372,29 +383,29 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
         child = lxb_dom_node_next(child);
     }
     
-    if (body) {
-        int y_offset = 0;
-        render_node_tree(body, parent, &y_offset);
-    } else {
-        // No body found, try to render the root
-        int y_offset = 0;
-        render_node_tree(lxb_dom_interface_node(root), parent, &y_offset);
-    }
+    int y_offset = 0;
+    render_node_tree(body ? body : lxb_dom_interface_node(root), parent, &y_offset);
     
     lxb_html_document_destroy(document);
 }
+
+typedef struct {
+    lv_obj_t* addr_bar;
+    lv_obj_t* content_cont;
+} refs_t;
+
 
 // Button event callback - no class checks
 static void fetch_btn_event_cb(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    lv_obj_t* btn = lv_event_get_target(e);
+    lv_obj_t* btn = (lv_obj_t*)lv_event_get_target(e);
 
     // Get associated objects stored in user data
     struct {
         lv_obj_t* addr_bar;
         lv_obj_t* content_cont;
-    } *refs = lv_obj_get_user_data(btn);
+    } *refs = (decltype(refs))lv_obj_get_user_data(btn);
 
     if (!refs || !refs->addr_bar || !refs->content_cont) return;
 
@@ -411,12 +422,12 @@ static void fetch_btn_event_cb(lv_event_t* e) {
 static void addr_bar_event_cb(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_READY) return;
 
-    lv_obj_t* addr_bar = lv_event_get_target(e);
+    lv_obj_t* addr_bar = (lv_obj_t*)lv_event_get_target(e);
 
     struct {
         lv_obj_t* addr_bar;
         lv_obj_t* content_cont;
-    } *refs = lv_obj_get_user_data(addr_bar);
+    } *refs = (decltype(refs))lv_obj_get_user_data(addr_bar);
 
     if (!refs || !refs->content_cont) return;
 
@@ -467,11 +478,7 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_obj_center(btn_label);
 
     // Link address bar and content container in a small struct
-    struct {
-        lv_obj_t* addr_bar;
-        lv_obj_t* content_cont;
-    } *refs = malloc(sizeof(*refs));
-
+    refs_t* refs = (refs_t*)malloc(sizeof(refs_t));
     refs->addr_bar = addr_bar;
     refs->content_cont = content_cont;
 
@@ -488,10 +495,9 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
 }
 
 ExternalAppManifest manifest = {
-    .onShow = onShow
+    .onShow = onShow,
 };
 
-int main(int argc, char* argv[]) {
+extern "C" void app_main(void) {
     tt_app_register(&manifest);
-    return 0;
 }

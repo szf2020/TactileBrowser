@@ -1,5 +1,5 @@
 # Gather all source files
-file(GLOB_RECURSE SOURCE_FILES Source/*.c)
+file(GLOB_RECURSE SOURCE_FILES Source/*.cpp)
 
 # Register component
 idf_component_register(
