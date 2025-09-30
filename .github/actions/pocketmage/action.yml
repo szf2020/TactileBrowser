@@ -1,4 +1,5 @@
 name: 'Build PocketMage (ESP32-S3)'
+description: 'Build TactileBrowser for the PocketMage'
 
 inputs:
   upload_artifact:
@@ -33,12 +34,23 @@ runs:
       working-directory: pocketmage-src
       run: pio run
 
-    - name: Upload firmware artifact
+    - name: Prepare Browser Package
+      shell: bash
+      working-directory: pocketmage-src
+      run: |
+        # Rename icon
+        cp browser/exampleApp_ICON.bin browser_ICON.bin
+
+        # Rename firmware
+        cp .pio/build/*/firmware.bin browser.bin
+
+        # Create uncompressed tar
+        tar -cf browser.tar browser.bin browser_ICON.bin
+
+    - name: Upload Browser Package
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: pocketmage-firmware
-        path: |
-          pocketmage-src/.pio/build/*/firmware.bin
-          pocketmage-src/.pio/build/*/partitions.bin
+        name: browser-package
+        path: pocketmage-src/browser.tar
         retention-days: 30
