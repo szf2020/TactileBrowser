@@ -3,11 +3,18 @@
 #include <lexbor/html/html.h>
 #include <lexbor/dom/interfaces/document.h>
 #include <lexbor/dom/interfaces/element.h>
+#include <WiFi.h>
 
 static constexpr const char* TAG = "BROWSER";
 
 #define MAX_TABS 5
 #define MAX_URL_LENGTH 512
+static Preferences wifiPrefs;
+static constexpr const char* WIFI_PREF_NAMESPACE = "browser";
+static constexpr const char* WIFI_PREF_SSID_KEY = "wifi_ssid";
+static constexpr const char* WIFI_PREF_PASS_KEY = "wifi_pass";
+static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
+static constexpr uint32_t WIFI_CONNECT_POLL_MS = 250;
 
 // Global variables are defined in globals.cpp
 
@@ -59,6 +66,172 @@ char* download_html(const String& url) {
     
     curl_easy_cleanup(curl);
     return chunk.data;
+}
+
+static const char* wifiStatusToString(wl_status_t status) {
+    switch (status) {
+        case WL_IDLE_STATUS:        return "Idle";
+        case WL_CONNECTED:          return "Connected";
+        case WL_NO_SSID_AVAIL:      return "SSID not found";
+        case WL_CONNECT_FAILED:     return "Auth failed";
+        case WL_CONNECTION_LOST:    return "Connection lost";
+        case WL_DISCONNECTED:       return "Disconnected";
+        case WL_SCAN_COMPLETED:     return "Scan completed";
+#ifdef WL_NO_MODULE
+    case WL_NO_MODULE:          return "WiFi module missing";
+#endif
+#ifdef WL_NO_SHIELD
+    case WL_NO_SHIELD:          return "WiFi shield missing";
+#endif
+#ifdef WL_MODE_CHANGED
+        case WL_MODE_CHANGED:       return "Mode changed";
+#endif
+        default:                    return "Unknown";
+    }
+}
+
+static String maskPasswordForDisplay(const String& value) {
+    if (value.isEmpty()) return "";
+    String masked;
+    masked.reserve(value.length());
+    for (size_t i = 0; i < value.length(); ++i) {
+        masked += '*';
+    }
+    return masked;
+}
+
+static void loadWifiCredentials() {
+    if (wifiPrefs.begin(WIFI_PREF_NAMESPACE, true)) {
+        wifiSSID = wifiPrefs.getString(WIFI_PREF_SSID_KEY, "");
+        wifiPassword = wifiPrefs.getString(WIFI_PREF_PASS_KEY, "");
+        wifiPrefs.end();
+    } else {
+        wifiSSID = "";
+        wifiPassword = "";
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiConnected = true;
+        String currentSSID = WiFi.SSID();
+        if (currentSSID.length() > 0) {
+            wifiSSID = currentSSID;
+        }
+        wifiStatusMessage = "Connected to " + wifiSSID + " (" + WiFi.localIP().toString() + ")";
+    } else {
+        wifiConnected = false;
+        if (wifiSSID.length() > 0) {
+            wifiStatusMessage = "Wi-Fi ready for " + wifiSSID;
+        } else {
+            wifiStatusMessage = "Wi-Fi not configured";
+        }
+    }
+}
+
+static void saveWifiCredentials() {
+    if (wifiPrefs.begin(WIFI_PREF_NAMESPACE, false)) {
+        wifiPrefs.putString(WIFI_PREF_SSID_KEY, wifiSSID);
+        wifiPrefs.putString(WIFI_PREF_PASS_KEY, wifiPassword);
+        wifiPrefs.end();
+    }
+}
+
+static bool attemptWifiConnection(uint32_t timeoutMs = WIFI_CONNECT_TIMEOUT_MS) {
+    if (wifiSSID.isEmpty()) {
+        wifiStatusMessage = "Enter an SSID first";
+        wifiConnected = false;
+        return false;
+    }
+
+    wifiStatusMessage = "Connecting to " + wifiSSID + "...";
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true, true);
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(false);
+    if (wifiPassword.length() == 0) {
+        WiFi.begin(wifiSSID.c_str());
+    } else {
+        WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+    }
+
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
+        delay(WIFI_CONNECT_POLL_MS);
+        yield();
+    }
+
+    wl_status_t status = WiFi.status();
+    if (status == WL_CONNECTED) {
+        wifiConnected = true;
+        wifiStatusMessage = "Connected to " + wifiSSID + " (" + WiFi.localIP().toString() + ")";
+        return true;
+    }
+
+    wifiConnected = false;
+    wifiStatusMessage = "Wi-Fi failed: " + String(wifiStatusToString(status));
+    return false;
+}
+
+static bool ensureWifiConnected(bool autoAttempt = true) {
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiConnected = true;
+        String currentSSID = WiFi.SSID();
+        if (currentSSID.length() > 0) {
+            wifiSSID = currentSSID;
+        }
+        wifiStatusMessage = "Connected to " + wifiSSID + " (" + WiFi.localIP().toString() + ")";
+        return true;
+    }
+
+    wifiConnected = false;
+
+    if (autoAttempt && wifiSSID.length() > 0) {
+        return attemptWifiConnection();
+    }
+
+    if (wifiSSID.length() > 0) {
+        wifiStatusMessage = "Wi-Fi ready for " + wifiSSID;
+    } else {
+        wifiStatusMessage = "Wi-Fi not configured";
+    }
+    return false;
+}
+
+static void update_wifi_display() {
+    urlClear();
+    switch (CurrentBROWSERState) {
+        case BROWSER_WIFI_SSID_INPUT:
+            urlAppend("Wi-Fi Setup");
+            urlAppend("Enter network name (SSID):");
+            urlAppend("> " + current_line);
+            break;
+        case BROWSER_WIFI_PASSWORD_INPUT:
+            urlAppend("Wi-Fi Setup");
+            urlAppend("SSID: " + wifiSSID);
+            urlAppend("Enter password:");
+            urlAppend("> " + maskPasswordForDisplay(current_line));
+            break;
+        case BROWSER_WIFI_STATUS:
+            urlAppend("Wi-Fi Status");
+            urlAppend(wifiStatusMessage);
+            if (WiFi.status() == WL_CONNECTED) {
+                urlAppend("IP: " + WiFi.localIP().toString());
+            } else if (!wifiSSID.isEmpty()) {
+                urlAppend("Target: " + wifiSSID);
+            }
+            urlAppend("CR->retry | ESC->back");
+            break;
+        default:
+            break;
+    }
+}
+
+static void start_wifi_setup() {
+    CurrentBROWSERState = BROWSER_WIFI_SSID_INPUT;
+    CurrentFrameState = &urlScreen;
+    current_line = wifiSSID;
+    update_wifi_display();
+    newLineAdded = true;
+    CurrentKBState = NORMAL;
 }
 
 // Extract title from HTML document
@@ -185,6 +358,18 @@ bool load_url(const String& url, int tab_index) {
         return false;
     }
 
+    if (WiFi.status() != WL_CONNECTED) {
+        OLED().oledWord("Connecting Wi-Fi...");
+    }
+
+    if (!ensureWifiConnected(true)) {
+        browserAppend("Error: Wi-Fi not connected. Use SH+FN to configure.");
+        browserAppend("Note: libcurl_esp32 requires an active Wi-Fi link.");
+        OLED().oledWord("Wi-Fi failed");
+        newLineAdded = true;
+        return false;
+    }
+
     OLED().oledWord("Loading...");
     
     // Download HTML
@@ -228,6 +413,9 @@ bool load_url(const String& url, int tab_index) {
 // Update browser display with current tab content
 void update_browser_display() {
     browserClear();
+
+    browserAppend("Wi-Fi: " + wifiStatusMessage);
+    browserAppend("");
     
     if (tabs[active_tab].loaded) {
         browserAppend("Title: " + tabs[active_tab].title);
@@ -306,7 +494,7 @@ void drawBrowser() {
         // Status bar
         switch (CurrentBROWSERState) {
             case BROWSER_VIEW:
-                EINK().drawStatusBar("TAB->tabs | FN->URL | ESC->home");
+                EINK().drawStatusBar("TAB->tabs | FN->URL | SH+FN->WiFi | ESC->home");
                 break;
             case BROWSER_URL_INPUT:
                 EINK().drawStatusBar("Enter URL | CR->load | ESC->cancel");
@@ -316,6 +504,15 @@ void drawBrowser() {
                 break;
             case BROWSER_HELP:
                 EINK().drawStatusBar("Browser Help | ESC->back");
+                break;
+            case BROWSER_WIFI_SSID_INPUT:
+                EINK().drawStatusBar("Wi-Fi SSID | CR->next | ESC->cancel");
+                break;
+            case BROWSER_WIFI_PASSWORD_INPUT:
+                EINK().drawStatusBar("Wi-Fi Password | CR->save | ESC->cancel");
+                break;
+            case BROWSER_WIFI_STATUS:
+                EINK().drawStatusBar("Wi-Fi Status | CR->retry | ESC->back");
                 break;
         }
         
@@ -334,24 +531,32 @@ void drawBrowser() {
 #pragma region input handling
 // Handle enter (CR) input
 void browserCRInput() {
-    current_line.trim();
-    
-    if (current_line.length() == 0) return;
-    
     switch (CurrentBROWSERState) {
-        case BROWSER_URL_INPUT:
-            // Load URL in current tab
-            if (load_url(current_line, active_tab)) {
+        case BROWSER_URL_INPUT: {
+            String url = current_line;
+            url.trim();
+            if (url.length() == 0) {
+                current_line = "";
+                return;
+            }
+            if (load_url(url, active_tab)) {
                 update_browser_display();
                 CurrentBROWSERState = BROWSER_VIEW;
                 CurrentFrameState = &browserScreen;
                 newLineAdded = true;
             }
             break;
-            
-        case BROWSER_TAB_SELECT:
-            // Switch to selected tab or create new
-            int tab_num = current_line.toInt();
+        }
+
+        case BROWSER_TAB_SELECT: {
+            String input = current_line;
+            input.trim();
+            if (input.length() == 0) {
+                current_line = "";
+                return;
+            }
+
+            int tab_num = input.toInt();
             if (tab_num > 0 && tab_num <= tab_count) {
                 active_tab = tab_num - 1;
                 update_browser_display();
@@ -359,7 +564,6 @@ void browserCRInput() {
                 CurrentFrameState = &browserScreen;
                 newLineAdded = true;
             } else if (tab_num == tab_count + 1 && tab_count < MAX_TABS) {
-                // Create new tab
                 tabs[tab_count].url = "";
                 tabs[tab_count].title = "New Tab";
                 tabs[tab_count].content = "";
@@ -372,8 +576,40 @@ void browserCRInput() {
                 newLineAdded = true;
             }
             break;
+        }
+
+        case BROWSER_WIFI_SSID_INPUT:
+            wifiSSID = current_line;
+            wifiSSID.trim();
+            current_line = wifiPassword;
+            CurrentBROWSERState = BROWSER_WIFI_PASSWORD_INPUT;
+            update_wifi_display();
+            newLineAdded = true;
+            break;
+
+        case BROWSER_WIFI_PASSWORD_INPUT:
+            wifiPassword = current_line;
+            saveWifiCredentials();
+            CurrentBROWSERState = BROWSER_WIFI_STATUS;
+            CurrentFrameState = &urlScreen;
+            current_line = "";
+            update_wifi_display();
+            newLineAdded = true;
+            attemptWifiConnection();
+            update_wifi_display();
+            update_browser_display();
+            break;
+
+        case BROWSER_WIFI_STATUS:
+            attemptWifiConnection();
+            update_wifi_display();
+            if (wifiConnected) {
+                update_browser_display();
+            }
+            newLineAdded = true;
+            break;
     }
-    
+
     current_line = "";
 }
 #pragma endregion
@@ -413,6 +649,12 @@ void BROWSER_INIT() {
     
     // Initialize CURL
     curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    loadWifiCredentials();
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(false);
+    ensureWifiConnected(false);
     
     update_browser_display();
 }
@@ -442,6 +684,12 @@ void processKB_BROWSER() {
         else if (inchar == 8) { // Backspace
             if (current_line.length() > 0) {
                 current_line.remove(current_line.length() - 1);
+                if (CurrentBROWSERState == BROWSER_URL_INPUT) {
+                    update_url_display();
+                } else if (CurrentBROWSERState == BROWSER_WIFI_SSID_INPUT ||
+                           CurrentBROWSERState == BROWSER_WIFI_PASSWORD_INPUT) {
+                    update_wifi_display();
+                }
             }
         }
         else if (inchar == 13) { // Enter
@@ -454,10 +702,14 @@ void processKB_BROWSER() {
                     break;
                 case BROWSER_URL_INPUT:
                 case BROWSER_TAB_SELECT:
+                case BROWSER_WIFI_SSID_INPUT:
+                case BROWSER_WIFI_PASSWORD_INPUT:
+                case BROWSER_WIFI_STATUS:
                     CurrentBROWSERState = BROWSER_VIEW;
                     CurrentFrameState = &browserScreen;
                     current_line = "";
                     newLineAdded = true;
+                    update_browser_display();
                     break;
             }
         }
@@ -472,11 +724,15 @@ void processKB_BROWSER() {
         }
         else if (inchar == 18) { // FN - URL input
             if (CurrentBROWSERState == BROWSER_VIEW) {
-                CurrentBROWSERState = BROWSER_URL_INPUT;
-                CurrentFrameState = &urlScreen;
-                current_line = tabs[active_tab].url;
-                update_url_display();
-                newLineAdded = true;
+                if (CurrentKBState == SHIFT) {
+                    start_wifi_setup();
+                } else {
+                    CurrentBROWSERState = BROWSER_URL_INPUT;
+                    CurrentFrameState = &urlScreen;
+                    current_line = tabs[active_tab].url;
+                    update_url_display();
+                    newLineAdded = true;
+                }
             } else {
                 if (CurrentKBState == FUNC) CurrentKBState = NORMAL;
                 else CurrentKBState = FUNC;
@@ -501,10 +757,15 @@ void processKB_BROWSER() {
         else {
             // Add character to current line
             if (CurrentBROWSERState == BROWSER_URL_INPUT || 
-                CurrentBROWSERState == BROWSER_TAB_SELECT) {
+                CurrentBROWSERState == BROWSER_TAB_SELECT ||
+                CurrentBROWSERState == BROWSER_WIFI_SSID_INPUT ||
+                CurrentBROWSERState == BROWSER_WIFI_PASSWORD_INPUT) {
                 current_line += inchar;
                 if (CurrentBROWSERState == BROWSER_URL_INPUT) {
                     update_url_display();
+                } else if (CurrentBROWSERState == BROWSER_WIFI_SSID_INPUT ||
+                           CurrentBROWSERState == BROWSER_WIFI_PASSWORD_INPUT) {
+                    update_wifi_display();
                 }
             }
             
@@ -526,6 +787,15 @@ void processKB_BROWSER() {
                         break;
                     case BROWSER_TAB_SELECT:
                         OLED().oledLine("Tab: " + current_line);
+                        break;
+                    case BROWSER_WIFI_SSID_INPUT:
+                        OLED().oledLine("Wi-Fi SSID: " + current_line);
+                        break;
+                    case BROWSER_WIFI_PASSWORD_INPUT:
+                        OLED().oledLine("Wi-Fi Pass: " + maskPasswordForDisplay(current_line));
+                        break;
+                    case BROWSER_WIFI_STATUS:
+                        OLED().oledLine("Wi-Fi: " + wifiStatusMessage);
                         break;
                 }
                 

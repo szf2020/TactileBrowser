@@ -198,7 +198,10 @@ enum BROWSERState {
     BROWSER_URL_INPUT,
     BROWSER_TAB_SELECT,
     BROWSER_BOOKMARKS,
-    BROWSER_HELP
+    BROWSER_HELP,
+    BROWSER_WIFI_SSID_INPUT,
+    BROWSER_WIFI_PASSWORD_INPUT,
+    BROWSER_WIFI_STATUS
 };
 
 // Browser memory buffer for CURL
@@ -217,6 +220,10 @@ extern volatile bool doFull;
 extern BROWSERState CurrentBROWSERState;
 extern int browserSwitchedStates;
 extern int refresh_count;
+extern String wifiSSID;
+extern String wifiPassword;
+extern bool wifiConnected;
+extern String wifiStatusMessage;
 
 // ===================== FRAME SYSTEM =====================
 #define MAX_FRAMES 100

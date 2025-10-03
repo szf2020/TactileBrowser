@@ -47,6 +47,13 @@ runs:
         # Create uncompressed tar
         tar -cf browser.tar browser.bin browser_ICON.bin
 
+    - name: Update Latest Build
+      shell: bash
+      working-directory: pocketmage-src
+      run: |
+        mkdir -p latest
+        cp browser.tar latest/
+
     - name: Upload Browser Package
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4
