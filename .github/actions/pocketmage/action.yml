@@ -39,7 +39,7 @@ runs:
       working-directory: pocketmage-src
       run: |
         # Rename icon
-        cp browser/exampleApp_ICON.bin browser_ICON.bin
+        cp browser/browser_ICON.bin browser_ICON.bin
 
         # Rename firmware
         cp .pio/build/*/firmware.bin browser.bin
