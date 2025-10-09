@@ -333,7 +333,7 @@ static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
     html_buffer[read_len] = 0;
     
     // Remove loading indicator
-    lv_obj_del(loading_lbl);
+    lv_obj_delete(loading_lbl);
     
     // Parse HTML
     lxb_html_document_t* document = lxb_html_document_create();
@@ -409,7 +409,7 @@ static void fetch_btn_event_cb(lv_event_t* e) {
 
     if (!refs || !refs->addr_bar || !refs->content_cont) return;
 
-    const char* url = lv_textarea_get_text(refs->addr_bar);
+    const char* url = lv_textarea_get_text(refs->addr_bar); // Already bound
     if (!url || strlen(url) == 0) return;
 
     strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
@@ -431,7 +431,7 @@ static void addr_bar_event_cb(lv_event_t* e) {
 
     if (!refs || !refs->content_cont) return;
 
-    const char* url = lv_textarea_get_text(addr_bar);
+    const char* url = lv_textarea_get_text(addr_bar); // Already bound
     if (!url || strlen(url) == 0) return;
 
     strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
@@ -462,7 +462,7 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_obj_align(content_cont, LV_ALIGN_TOP_LEFT, 0, 75);
     lv_obj_set_scroll_dir(content_cont, LV_DIR_VER);
     lv_obj_set_style_pad_all(content_cont, 10, 0);
-    lv_obj_set_style_bg_color(content_cont, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(content_cont, lv_color_make(0xFF,0xFF,0xFF), 0);
     lv_obj_set_style_border_width(content_cont, 1, 0);
     lv_obj_set_style_border_color(content_cont, lv_color_hex(0xCCCCCC), 0);
 
