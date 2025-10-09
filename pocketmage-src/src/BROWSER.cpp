@@ -13,7 +13,7 @@ static Preferences wifiPrefs;
 static constexpr const char* WIFI_PREF_NAMESPACE = "browser";
 static constexpr const char* WIFI_PREF_SSID_KEY = "wifi_ssid";
 static constexpr const char* WIFI_PREF_PASS_KEY = "wifi_pass";
-static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
+static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
 static constexpr uint32_t WIFI_CONNECT_POLL_MS = 250;
 
 // Global variables are defined in globals.cpp
@@ -852,6 +852,7 @@ void applicationEinkHandler() {
 
 // Setup function
 void setup() {
+    setCpuFrequencyMhz(240);
     PocketMage_INIT();
     BROWSER_INIT();
 }
