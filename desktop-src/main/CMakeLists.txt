@@ -61,6 +61,9 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core ${CMAKE_BINARY_DIR}/
 # Add LVGL subdirectory
 add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl ${CMAKE_BINARY_DIR}/lvgl EXCLUDE_FROM_ALL)
 
+# Add SDL2 include directories to LVGL target
+target_include_directories(lvgl PRIVATE ${SDL2_INCLUDE_DIRS})
+
 add_executable(TactileBrowser Source/main.cpp)
 
 target_include_directories(TactileBrowser PRIVATE
