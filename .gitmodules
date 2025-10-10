@@ -1,20 +1,9 @@
-[submodule "elk-desktop"]
-	path = desktop-src/main/elk
+[submodule "tactilebrowser_core/elk"]
+	path = tactilebrowser_core/elk
 	url = https://github.com/cesanta/elk.git
-
-[submodule "lvgl-desktop"]
-	path = desktop-src/main/lvgl
+[submodule "tactilebrowser_core/lvgl"]
+	path = tactilebrowser_core/lvgl
 	url = https://github.com/lvgl/lvgl.git
-
-[submodule "lexbor-desktop"]
-	path = desktop-src/main/lexbor
-	url = https://github.com/lexbor/lexbor.git
-[submodule "tactility-src/main/elk"]
-	path = tactility-src/main/elk
-	url = https://github.com/cesanta/elk.git
-[submodule "tactility-src/main/lexbor"]
-	path = tactility-src/main/lexbor
-	url = https://github.com/NellowTCS/lexbor.git
-[submodule "pocketmage-src/lib/lexbor"]
-	path = pocketmage-src/lib/lexbor
+[submodule "tactilebrowser_core/lexbor"]
+	path = tactilebrowser_core/lexbor
 	url = https://github.com/NellowTCS/lexbor.git

@@ -1,0 +1,52 @@
+{
+  "name": "tactilebrowser_core",
+  "version": "1.0.0",
+  "description": "Core library for TactileBrowser with HTML parsing and rendering",
+  "keywords": "html, parser, browser, lexbor",
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "authors": [
+    {
+      "name": "NellowTCS"
+    }
+  ],
+  "license": "MIT",
+  "homepage": ".",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "build": {
+    "srcDir": "src",
+    "srcFilter": [
+      "+<*.cpp>",
+      "+<../lexbor/source/lexbor/core/*.c>",
+      "+<../lexbor/source/lexbor/css/*.c>",
+      "+<../lexbor/source/lexbor/dom/*.c>",
+      "+<../lexbor/source/lexbor/dom/interfaces/*.c>",
+      "+<../lexbor/source/lexbor/encoding/*.c>",
+      "+<../lexbor/source/lexbor/engine/*.c>",
+      "+<../lexbor/source/lexbor/html/*.c>",
+      "+<../lexbor/source/lexbor/html/interfaces/*.c>",
+      "+<../lexbor/source/lexbor/html/tokenizer/*.c>",
+      "+<../lexbor/source/lexbor/html/tree/*.c>",
+      "+<../lexbor/source/lexbor/html/tree/insertion_mode/*.c>",
+      "+<../lexbor/source/lexbor/ns/*.c>",
+      "+<../lexbor/source/lexbor/ports/posix/lexbor/core/*.c>",
+      "+<../lexbor/source/lexbor/punycode/*.c>",
+      "+<../lexbor/source/lexbor/selectors/*.c>",
+      "+<../lexbor/source/lexbor/style/*.c>",
+      "+<../lexbor/source/lexbor/tag/*.c>",
+      "+<../lexbor/source/lexbor/unicode/*.c>",
+      "+<../lexbor/source/lexbor/url/*.c>",
+      "+<../lexbor/source/lexbor/utils/*.c>",
+      "-<../lexbor/source/lexbor/ports/posix/lexbor/core/fs.c>",
+      "-<../lexbor/source/lexbor/ports/windows_nt/**/*>"
+    ],
+    "includeDir": "include",
+    "flags": [
+      "-I../lexbor/source",
+      "-DLEXBOR_STATIC"
+    ]
+  }
+}

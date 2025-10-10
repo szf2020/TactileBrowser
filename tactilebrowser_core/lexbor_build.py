@@ -4,7 +4,7 @@ import subprocess
 import shutil
 
 PROJECT_DIR = os.getcwd()
-LEXBOR_DIR = os.path.join(PROJECT_DIR, "lib", "lexbor")
+LEXBOR_DIR = os.path.join(PROJECT_DIR, "lexbor")
 BUILD_DIR = os.path.join(PROJECT_DIR, ".pio", "lexbor_build")
 
 # Create build directory
@@ -32,7 +32,7 @@ if not toolchain_prefix or not os.path.exists(toolchain_prefix + 'gcc'):
         '/home/codespace/.platformio/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-',
         '/opt/esp32-toolchain/bin/xtensa-esp32s3-elf-'
     ]
-    
+
     for path in possible_paths:
         if os.path.exists(path + 'gcc'):
             toolchain_prefix = path
@@ -58,6 +58,12 @@ print(f"  CC: {env['CC']}")
 print(f"  CXX: {env['CXX']}")
 print(f"  AR: {env['AR']}")
 print(f"  RANLIB: {env['RANLIB']}")
+
+# Temporarily move fs.c out of the way since ESP32 doesn't support dirent.h
+fs_c_path = os.path.join(LEXBOR_DIR, "source", "lexbor", "ports", "posix", "lexbor", "core", "fs.c")
+fs_c_backup = fs_c_path + ".backup"
+if os.path.exists(fs_c_path):
+    shutil.move(fs_c_path, fs_c_backup)
 
 # Run CMake with flags for static library only and cross-compilation
 subprocess.run([
@@ -86,5 +92,9 @@ shutil.copy("liblexbor_static.a", LEXBOR_DIR)
 # Clean up build directory
 os.chdir(PROJECT_DIR)
 shutil.rmtree(BUILD_DIR)
+
+# Restore fs.c
+if os.path.exists(fs_c_backup):
+    shutil.move(fs_c_backup, fs_c_path)
 
 print("Lexbor static library built using ESP32 toolchain and build folder cleaned.")

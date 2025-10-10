@@ -1,16 +1,8 @@
-#include <tt_app_manifest.h>
+#include <tt_app.h>
 #include <tt_lvgl_toolbar.h>
 #include <lvgl.h>
-#include <esp_http_client.h>
-#include <lexbor/html/parser.h>
-#include <lexbor/html/interface.h>
-#include <lexbor/dom/interfaces/document.h>
-#include <lexbor/dom/interfaces/element.h>
-#include <lexbor/dom/interfaces/text.h>
-#include <lexbor/dom/interfaces/node.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
+#include <tactilebrowser_core.h>
+#include "lvgl_renderer.h"
 
 // Memory optimization: Static buffers instead of malloc
 #define MAX_HTML_SIZE 6144
@@ -27,422 +19,59 @@ static char text_buffer[MAX_TEXT_BUFFER];
 static char style_buffer[MAX_STYLE_BUFFER];
 static char url_buffer[MAX_URL_LENGTH];
 
-// CSS color table for fast lookup
-typedef struct {
-    const char* name;
-    uint32_t color;
-} color_entry_t;
-
-static const color_entry_t color_table[] = {
-    {"red", 0xFF0000}, {"green", 0x00FF00}, {"blue", 0x0000FF},
-    {"black", 0x000000}, {"white", 0xFFFFFF}, {"gray", 0x808080},
-    {"yellow", 0xFFFF00}, {"orange", 0xFFA500}, {"purple", 0x800080}
-};
-
-// Forward declarations
-static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent);
-static void render_node_tree(lxb_dom_node_t* node, lv_obj_t* parent, int* y_offset);
-
-// Optimized CSS parser with color name support
-static void apply_inline_style(lv_obj_t* obj, const char* style) {
-    if (!style || strlen(style) >= MAX_STYLE_BUFFER) return;
-    
-    strncpy(style_buffer, style, MAX_STYLE_BUFFER - 1);
-    style_buffer[MAX_STYLE_BUFFER - 1] = 0;
-    
-    char* p = style_buffer;
-    char* key_start, *val_start;
-    
-    while (*p) {
-        // Skip whitespace - cast to unsigned char to fix warning
-        while (*p && isspace((unsigned char)*p)) p++;
-        if (!*p) break;
-        
-        // Find key
-        key_start = p;
-        while (*p && *p != ':' && !isspace((unsigned char)*p)) p++;
-        if (*p != ':') continue;
-        *p++ = 0;
-        
-        // Skip whitespace after colon
-        while (*p && isspace((unsigned char)*p)) p++;
-        val_start = p;
-        
-        // Find value end
-        while (*p && *p != ';') p++;
-        if (*p == ';') *p++ = 0;
-        
-        // Remove trailing whitespace from value
-        char* val_end = val_start + strlen(val_start) - 1;
-        while (val_end > val_start && isspace((unsigned char)*val_end)) *val_end-- = 0;
-        
-        // Apply styles
-        if (strcmp(key_start, "color") == 0) {
-            uint32_t color = 0;
-            if (val_start[0] == '#') {
-                // Hex color - use %lx for uint32_t
-                if (sscanf(val_start + 1, "%06lx", &color) == 1) {
-                    lv_obj_set_style_text_color(obj, lv_color_hex(color), 0);
-                }
-            } else {
-                // Named color
-                for (int i = 0; i < sizeof(color_table)/sizeof(color_table[0]); i++) {
-                    if (strcmp(val_start, color_table[i].name) == 0) {
-                        lv_obj_set_style_text_color(obj, lv_color_hex(color_table[i].color), 0);
-                        break;
-                    }
-                }
-            }
-        }
-        else if (strcmp(key_start, "background-color") == 0) {
-            uint32_t color = 0;
-            if (val_start[0] == '#' && sscanf(val_start + 1, "%06lx", &color) == 1) {
-                lv_obj_set_style_bg_color(obj, lv_color_hex(color), 0);
-                lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-            }
-        }
-        // Removed font-size and font-weight handling - let system handle fonts
-        else if (strcmp(key_start, "text-align") == 0) {
-            if (strcmp(val_start, "center") == 0) {
-                lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, 0);
-            } else if (strcmp(val_start, "right") == 0) {
-                lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_RIGHT, 0);
-            }
-        }
-        else if (strcmp(key_start, "padding") == 0) {
-            int pad = atoi(val_start);
-            if (pad > 0 && pad <= 20) {
-                lv_obj_set_style_pad_all(obj, pad, 0);
-            }
-        }
-        else if (strcmp(key_start, "margin") == 0) {
-            int margin = atoi(val_start);
-            if (margin > 0 && margin <= 20) {
-                lv_obj_set_style_margin_all(obj, margin, 0);
-            }
-        }
-    }
-}
-
-// Enhanced element rendering with better HTML support - removed hardcoded fonts
-static lv_obj_t* create_element_widget(lxb_dom_element_t* el, lv_obj_t* parent, const char* tag_name, size_t tag_len) {
-    lv_obj_t* widget = NULL;
-    
-    // Handle different HTML elements
-    if (tag_len == 2 && memcmp(tag_name, "h1", 2) == 0) {
-        widget = lv_label_create(parent);
-        // Removed hardcoded font - let system handle it
-        lv_obj_set_style_text_color(widget, lv_color_hex(0x000080), 0);
-    }
-    else if (tag_len == 2 && (memcmp(tag_name, "h2", 2) == 0 || memcmp(tag_name, "h3", 2) == 0)) {
-        widget = lv_label_create(parent);
-        // Removed hardcoded font - let system handle it
-        lv_obj_set_style_text_color(widget, lv_color_hex(0x000080), 0);
-    }
-    else if (tag_len == 1 && memcmp(tag_name, "p", 1) == 0) {
-        widget = lv_label_create(parent);
-        lv_obj_set_style_margin_bottom(widget, 10, 0);
-    }
-    else if (tag_len == 1 && memcmp(tag_name, "a", 1) == 0) {
-        widget = lv_label_create(parent);
-        lv_obj_set_style_text_color(widget, lv_color_hex(0x0000EE), 0);
-        lv_obj_set_style_text_decor(widget, LV_TEXT_DECOR_UNDERLINE, 0);
-    }
-    else if (tag_len == 6 && memcmp(tag_name, "button", 6) == 0) {
-        widget = lv_btn_create(parent);
-    }
-    else if (tag_len == 3 && memcmp(tag_name, "div", 3) == 0) {
-        widget = lv_obj_create(parent);
-        lv_obj_set_style_border_width(widget, 0, 0);
-        lv_obj_set_style_bg_opa(widget, LV_OPA_TRANSP, 0);
-    }
-    else if (tag_len == 4 && memcmp(tag_name, "span", 4) == 0) {
-        widget = lv_label_create(parent);
-    }
-    else {
-        // Default container
-        widget = lv_obj_create(parent);
-        lv_obj_set_style_border_width(widget, 0, 0);
-        lv_obj_set_style_bg_opa(widget, LV_OPA_TRANSP, 0);
-    }
-    
-    if (widget) {
-        lv_obj_set_width(widget, lv_pct(100));
-        lv_obj_set_height(widget, LV_SIZE_CONTENT);
-    }
-    
-    return widget;
-}
-
-// Optimized DOM tree rendering
-static void render_node_tree(lxb_dom_node_t* node, lv_obj_t* parent, int* y_offset) {
-    if (!node || !parent) return;
-    
-    lxb_dom_node_t* child = lxb_dom_node_first_child(node);
-    
-    while (child) {
-        lxb_dom_node_type_t node_type = child->type;
-        
-        if (node_type == LXB_DOM_NODE_TYPE_TEXT) {
-            size_t len;
-            const lxb_char_t* txt = lxb_dom_node_text_content(child, &len);
-            
-            if (txt && len > 0 && len < MAX_TEXT_BUFFER) {
-                // Use static buffer
-                memcpy(text_buffer, txt, len);
-                text_buffer[len] = 0;
-                
-                // Trim whitespace more efficiently - cast to unsigned char
-                char* start = text_buffer;
-                char* end = text_buffer + len - 1;
-                
-                while (start <= end && isspace((unsigned char)*start)) start++;
-                while (end >= start && isspace((unsigned char)*end)) *end-- = 0;
-                
-                if (start <= end && *start) {
-                    lv_obj_t* lbl = lv_label_create(parent);
-                    lv_label_set_text(lbl, start);
-                    lv_obj_set_width(lbl, lv_pct(100));
-                    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
-                    lv_obj_set_pos(lbl, 0, *y_offset);
-                    *y_offset += 25;
-                }
-            }
-        }
-        else if (node_type == LXB_DOM_NODE_TYPE_ELEMENT) {
-            lxb_dom_element_t* el = lxb_dom_interface_element(child);
-            
-            // Get element tag name
-            size_t tag_len;
-            const lxb_char_t* tag_name = lxb_dom_element_local_name(el, &tag_len);
-            
-            // Create appropriate widget
-            lv_obj_t* widget = create_element_widget(el, parent, (const char*)tag_name, tag_len);
-            
-            if (widget) {
-                lv_obj_set_pos(widget, 0, *y_offset);
-                
-                // Apply inline styles
-                size_t attr_len;
-                const lxb_char_t* style_attr = lxb_dom_element_get_attribute(el, 
-                    (const lxb_char_t*)"style", 5, &attr_len);
-                
-                if (style_attr && attr_len < MAX_STYLE_BUFFER) {
-                    memcpy(style_buffer, style_attr, attr_len);
-                    style_buffer[attr_len] = 0;
-                    apply_inline_style(widget, style_buffer);
-                }
-                
-                // Handle button text
-                if (tag_len == 6 && memcmp(tag_name, "button", 6) == 0) {
-                    size_t text_len;
-                    const lxb_char_t* btn_text = lxb_dom_node_text_content(child, &text_len);
-                    if (btn_text && text_len > 0 && text_len < MAX_TEXT_BUFFER) {
-                        memcpy(text_buffer, btn_text, text_len);
-                        text_buffer[text_len] = 0;
-                        
-                        lv_obj_t* btn_label = lv_label_create(widget);
-                        lv_label_set_text(btn_label, text_buffer);
-                        lv_obj_center(btn_label);
-                    }
-                }
-                
-                int child_y = 0;
-                render_node_tree(child, widget, &child_y);
-                
-                *y_offset += lv_obj_get_height(widget) + 5;
-            }
-        }
-        
-        child = lxb_dom_node_next(child);
-    }
-}
-
-// Optimized HTTP fetch with better error handling
-static void fetch_and_render(AppHandle app, const char* url, lv_obj_t* parent) {
-    if (!url || !parent) return;
-    
-    // Clear previous content
-    lv_obj_clean(parent);
-    
-    // Show loading indicator
-    lv_obj_t* loading_lbl = lv_label_create(parent);
-    lv_label_set_text(loading_lbl, "Loading...");
-    lv_obj_set_style_text_color(loading_lbl, lv_color_hex(0x808080), 0);
-    
-    // HTTP client configuration
-    esp_http_client_config_t cfg = {};
-    cfg.url = url;
-    cfg.timeout_ms = 8000;
-    cfg.buffer_size = 1024;
-    cfg.buffer_size_tx = 512;
-    cfg.user_agent = "TactileBrowser/1.0";
-
-    esp_http_client_handle_t client = esp_http_client_init(&cfg);
-    if (!client) {
-        snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP client init failed");
-        lv_label_set_text(loading_lbl, text_buffer);
-        return;
-    }
-    
-    esp_err_t err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        snprintf(text_buffer, MAX_TEXT_BUFFER, "Connection failed: %d", err);
-        lv_label_set_text(loading_lbl, text_buffer);
-        esp_http_client_cleanup(client);
-        return;
-    }
-    
-    int content_length = esp_http_client_fetch_headers(client);
-    int status_code = esp_http_client_get_status_code(client);
-    
-    if (status_code != 200) {
-        switch(status_code) {
-            case 400: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 400 Bad Request"); break;
-            case 401: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 401 Unauthorized"); break;
-            case 403: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 403 Forbidden"); break;
-            case 404: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 404 Not Found"); break;
-            case 408: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 408 Request Timeout"); break;
-            case 500: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 500 Internal Server Error"); break;
-            case 502: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 502 Bad Gateway"); break;
-            case 503: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 503 Service Unavailable"); break;
-            case 504: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP 504 Gateway Timeout"); break;
-            default: snprintf(text_buffer, MAX_TEXT_BUFFER, "HTTP Error: %d", status_code); break;
-        }
-        lv_label_set_text(loading_lbl, text_buffer);
-        esp_http_client_cleanup(client);
-        return;
-    }
-    
-    if (content_length <= 0) {
-        lv_label_set_text(loading_lbl, "No content received");
-        esp_http_client_cleanup(client);
-        return;
-    }
-    
-    if (content_length > MAX_HTML_SIZE) content_length = MAX_HTML_SIZE;
-    
-    int read_len = esp_http_client_read(client, html_buffer, content_length);
-    esp_http_client_cleanup(client);
-    
-    if (read_len <= 0) {
-        lv_label_set_text(loading_lbl, "Failed to read response");
-        return;
-    }
-    
-    html_buffer[read_len] = 0;
-    
-    // Remove loading indicator
-    lv_obj_delete(loading_lbl);
-    
-    // Parse HTML
-    lxb_html_document_t* document = lxb_html_document_create();
-    if (!document) {
-        lv_obj_t* err_lbl = lv_label_create(parent);
-        lv_label_set_text(err_lbl, "HTML document creation failed");
-        return;
-    }
-    
-    lxb_status_t status = lxb_html_document_parse(document, (const lxb_char_t*)html_buffer, read_len);
-    if (status != LXB_STATUS_OK) {
-        lv_obj_t* err_lbl = lv_label_create(parent);
-        lv_label_set_text(err_lbl, "HTML parsing failed");
-        lxb_html_document_destroy(document);
-        return;
-    }
-    
-    lxb_dom_document_t* dom_document = lxb_dom_interface_document(document);
-    if (!dom_document) {
-        lv_obj_t* err_lbl = lv_label_create(parent);
-        lv_label_set_text(err_lbl, "DOM document interface failed");
-        lxb_html_document_destroy(document);
-        return;
-    }
-    
-    lxb_dom_element_t* root = lxb_dom_document_element(dom_document);
-    if (!root) {
-        lv_obj_t* err_lbl = lv_label_create(parent);
-        lv_label_set_text(err_lbl, "No root element found");
-        lxb_html_document_destroy(document);
-        return;
-    }
-    
-    // Find body element
-    lxb_dom_node_t* body = NULL;
-    lxb_dom_node_t* child = lxb_dom_node_first_child(lxb_dom_interface_node(root));
-    while (child) {
-        if (child->type == LXB_DOM_NODE_TYPE_ELEMENT) {
-            lxb_dom_element_t* elem = lxb_dom_interface_element(child);
-            size_t tag_len;
-            const lxb_char_t* tag_name = lxb_dom_element_local_name(elem, &tag_len);
-            if (tag_name && tag_len == 4 && memcmp(tag_name, "body", 4) == 0) {
-                body = child;
-                break;
-            }
-        }
-        child = lxb_dom_node_next(child);
-    }
-    
-    int y_offset = 0;
-    render_node_tree(body ? body : lxb_dom_interface_node(root), parent, &y_offset);
-    
-    lxb_html_document_destroy(document);
-}
+// LVGL renderer instance
+static LvglRenderer* lvgl_renderer = NULL;
 
 typedef struct {
     lv_obj_t* addr_bar;
     lv_obj_t* content_cont;
 } refs_t;
 
-
-// Button event callback - no class checks
+// Button event callback
 static void fetch_btn_event_cb(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
     lv_obj_t* btn = (lv_obj_t*)lv_event_get_target(e);
 
     // Get associated objects stored in user data
-    struct {
-        lv_obj_t* addr_bar;
-        lv_obj_t* content_cont;
-    } *refs = (decltype(refs))lv_obj_get_user_data(btn);
+    refs_t* refs = (refs_t*)lv_obj_get_user_data(btn);
 
     if (!refs || !refs->addr_bar || !refs->content_cont) return;
 
-    const char* url = lv_textarea_get_text(refs->addr_bar); // Already bound
+    const char* url = lv_textarea_get_text(refs->addr_bar);
     if (!url || strlen(url) == 0) return;
 
-    strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
-    url_buffer[MAX_URL_LENGTH - 1] = 0;
-
-    fetch_and_render(global_app, url_buffer, refs->content_cont);
+    // Use core library to render
+    tactilebrowser_render_url(url, refs->content_cont, lv_pct(100), lv_pct(85));
 }
 
-// Address bar event callback - no class checks
+// Address bar event callback
 static void addr_bar_event_cb(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_READY) return;
 
     lv_obj_t* addr_bar = (lv_obj_t*)lv_event_get_target(e);
 
-    struct {
-        lv_obj_t* addr_bar;
-        lv_obj_t* content_cont;
-    } *refs = (decltype(refs))lv_obj_get_user_data(addr_bar);
+    refs_t* refs = (refs_t*)lv_obj_get_user_data(addr_bar);
 
     if (!refs || !refs->content_cont) return;
 
-    const char* url = lv_textarea_get_text(addr_bar); // Already bound
+    const char* url = lv_textarea_get_text(addr_bar);
     if (!url || strlen(url) == 0) return;
 
-    strncpy(url_buffer, url, MAX_URL_LENGTH - 1);
-    url_buffer[MAX_URL_LENGTH - 1] = 0;
-
-    fetch_and_render(global_app, url_buffer, refs->content_cont);
+    // Use core library to render
+    tactilebrowser_render_url(url, refs->content_cont, lv_pct(100), lv_pct(85));
 }
-
 
 static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     global_app = app;
+
+    // Initialize core library if not already done
+    if (!lvgl_renderer) {
+        tactilebrowser_core_init();
+        lvgl_renderer = lvgl_renderer_create();
+        tactilebrowser_set_renderer((RenderInterface*)lvgl_renderer);
+        tactilebrowser_set_html_downloader(esp32_download_html);
+    }
 
     // Create toolbar
     tt_lvgl_toolbar_create_for_app(parent, app);
@@ -477,7 +106,7 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_obj_set_style_text_color(btn_label, lv_color_white(), 0);
     lv_obj_center(btn_label);
 
-    // Link address bar and content container in a small struct
+    // Link address bar and content container
     refs_t* refs = (refs_t*)malloc(sizeof(refs_t));
     refs->addr_bar = addr_bar;
     refs->content_cont = content_cont;
@@ -491,13 +120,13 @@ static void onShow(AppHandle app, void* data, lv_obj_t* parent) {
     lv_obj_add_event_cb(addr_bar, addr_bar_event_cb, LV_EVENT_READY, NULL);
 
     // Initial page load
-    fetch_and_render(app, "http://example.com", content_cont);
+    tactilebrowser_render_url("http://example.com", content_cont, lv_pct(100), lv_pct(85));
 }
 
-ExternalAppManifest manifest = {
+AppRegistration manifest = {
     .onShow = onShow,
 };
 
 extern "C" void app_main(void) {
-    tt_app_register(&manifest);
+    tt_app_register(manifest);
 }

@@ -205,10 +205,13 @@ enum BROWSERState {
 };
 
 // Browser memory buffer for CURL
+#ifndef MEMORY_BUFFER_DEFINED
+#define MEMORY_BUFFER_DEFINED
 typedef struct {
     char *data;
     size_t size;
 } MemoryBuffer;
+#endif
 
 // Browser globals
 extern Tab tabs[MAX_TABS];

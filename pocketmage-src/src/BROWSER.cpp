@@ -1,8 +1,6 @@
 #include <pocketmage.h>
 #include <curl/curl.h>
-#include <lexbor/html/html.h>
-#include <lexbor/dom/interfaces/document.h>
-#include <lexbor/dom/interfaces/element.h>
+#include <tactilebrowser_core.h>
 #include <WiFi.h>
 
 static constexpr const char* TAG = "BROWSER";
@@ -37,7 +35,7 @@ static size_t http_write_callback(void *contents, size_t size, size_t nmemb, voi
     return real_size;
 }
 
-// Download HTML content
+// Download HTML content (keeping curl implementation for pocketmage)
 char* download_html(const String& url) {
     CURL *curl = curl_easy_init();
     MemoryBuffer chunk = {0};
@@ -234,90 +232,25 @@ static void start_wifi_setup() {
     CurrentKBState = NORMAL;
 }
 
-// Extract title from HTML document
+// Extract title from HTML document using core library
 String extract_title(lxb_html_document_t *document) {
-    if (!document) return "Untitled";
-
-    lxb_dom_element_t *root = lxb_dom_document_element(lxb_dom_interface_document(document));
-    if (!root) return "Untitled";
-
-    lxb_dom_collection_t *collection = lxb_dom_collection_make(lxb_dom_interface_document(document), 16);
-    if (!collection) return "Untitled";
-
-    lxb_status_t status = lxb_dom_elements_by_tag_name(root, collection, 
-                                                       (const lxb_char_t *)"title", 5);
-    
-    if (status != LXB_STATUS_OK || lxb_dom_collection_length(collection) == 0) {
-        lxb_dom_collection_destroy(collection, true);
-        return "Untitled";
+    char* title = html_parser.extract_title(document);
+    if (title) {
+        String result = String(title);
+        free(title);
+        return result;
     }
-
-    lxb_dom_element_t *title_element = lxb_dom_collection_element(collection, 0);
-    size_t text_len = 0;
-    lxb_char_t *text = lxb_dom_node_text_content(lxb_dom_interface_node(title_element), &text_len);
-    
-    String result = "Untitled";
-    if (text && text_len > 0) {
-        result = String((const char*)text).substring(0, min((int)text_len, 50));
-    }
-    
-    if (text) lxb_dom_document_destroy_text(lxb_dom_interface_document(document), text);
-    lxb_dom_collection_destroy(collection, true);
-    
-    return result;
+    return "Untitled";
 }
 
-// Extract text content from HTML
+// Extract text content from HTML using core library
 void extract_content(lxb_html_document_t *document, String &content) {
     content = "";
-    if (!document) return;
-
-    lxb_dom_element_t *root = lxb_dom_document_element(lxb_dom_interface_document(document));
-    if (!root) return;
-
-    lxb_dom_collection_t *body_collection = lxb_dom_collection_make(lxb_dom_interface_document(document), 4);
-    if (!body_collection) return;
-
-    if (lxb_dom_elements_by_tag_name(root, body_collection, (const lxb_char_t *)"body", 4) != LXB_STATUS_OK ||
-        lxb_dom_collection_length(body_collection) == 0) {
-        lxb_dom_collection_destroy(body_collection, true);
-        return;
+    char* text_content = html_parser.extract_text_content(document);
+    if (text_content) {
+        content = String(text_content);
+        free(text_content);
     }
-
-    lxb_dom_element_t *body = lxb_dom_collection_element(body_collection, 0);
-    if (!body) {
-        lxb_dom_collection_destroy(body_collection, true);
-        return;
-    }
-
-    lxb_dom_node_t *node = lxb_dom_interface_node(body)->first_child;
-    int line_count = 0;
-
-    while (node && line_count < 100) { // Limit content extraction
-        if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
-            const lxb_tag_id_t tag_id = lxb_dom_element_tag_id((lxb_dom_element_t *)node);
-            
-            if (tag_id == LXB_TAG_P || tag_id == LXB_TAG_H1 || tag_id == LXB_TAG_H2 || 
-                tag_id == LXB_TAG_H3 || tag_id == LXB_TAG_A || tag_id == LXB_TAG_DIV) {
-                
-                size_t text_len = 0;
-                lxb_char_t *text = lxb_dom_node_text_content(node, &text_len);
-                
-                if (text && text_len > 0) {
-                    String line = String((const char*)text).substring(0, min((int)text_len, 200));
-                    line.trim();
-                    if (line.length() > 0) {
-                        content += line + "\n";
-                        line_count++;
-                    }
-                    lxb_dom_document_destroy_text(lxb_dom_interface_document(document), text);
-                }
-            }
-        }
-        node = node->next;
-    }
-    
-    lxb_dom_collection_destroy(body_collection, true);
 }
 
 // Add line to browser display
@@ -380,17 +313,10 @@ bool load_url(const String& url, int tab_index) {
         return false;
     }
 
-    // Parse HTML
-    lxb_html_document_t *document = lxb_html_document_create();
+    // Parse HTML using core library
+    lxb_html_document_t *document = html_parser.parse_html(html, strlen(html));
     if (!document) {
-        free(html);
-        browserAppend("Error: Failed to create HTML parser");
-        return false;
-    }
-
-    if (lxb_html_document_parse(document, (const lxb_char_t *)html, strlen(html)) != LXB_STATUS_OK) {
         browserAppend("Error: Failed to parse HTML content");
-        lxb_html_document_destroy(document);
         free(html);
         return false;
     }
@@ -619,7 +545,11 @@ void browserCRInput() {
 void BROWSER_INIT() {
     Serial.println("Initializing BROWSER!");
     
-    CurrentKBState = NORMAL;
+    // Initialize core library
+    if (!tactilebrowser_core_init()) {
+        Serial.println("Failed to initialize tactilebrowser_core!");
+        return;
+    }
     CurrentBROWSERState = BROWSER_VIEW;
     CurrentFrameState = &browserScreen;
     

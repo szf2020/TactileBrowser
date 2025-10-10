@@ -36,16 +36,14 @@ endif()
 find_package(CURL REQUIRED)
 
 # Check subdirs
-if(NOT EXISTS ${CMAKE_SOURCE_DIR}/main/lvgl/CMakeLists.txt)
-    message(FATAL_ERROR "LVGL subdirectory not found.")
-endif()
-if(NOT EXISTS ${CMAKE_SOURCE_DIR}/main/lexbor/CMakeLists.txt)
-    message(FATAL_ERROR "Lexbor subdirectory not found.")
+if(NOT EXISTS ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/CMakeLists.txt)
+    message(FATAL_ERROR "Core library not found.")
 endif()
 
 # LVGL options
 set(LV_USE_SDL ON CACHE BOOL "Use SDL2 driver for LVGL")
 set(LV_USE_DRAW_SDL ON CACHE BOOL "Use SDL2 for drawing")
+set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "Disable ThorVG internal")
 
 # Set SDL2 cache variables for LVGL's find_package
 set(SDL2_FOUND TRUE CACHE BOOL "" FORCE)
@@ -53,29 +51,29 @@ set(SDL2_INCLUDE_DIRS ${SDL2_INCLUDE_DIRS} CACHE STRING "" FORCE)
 set(SDL2_LIBRARIES ${SDL2_LIBRARIES} CACHE STRING "" FORCE)
 set(CMAKE_DISABLE_FIND_PACKAGE_SDL2 TRUE)
 
-add_subdirectory(lvgl EXCLUDE_FROM_ALL)
-target_include_directories(lvgl PUBLIC ${SDL2_INCLUDE_DIRS})
-target_link_libraries(lvgl PUBLIC ${SDL2_LIBRARIES})
+# Set CXX compiler to C compiler to avoid C++ issues with LVGL
+set(CMAKE_CXX_COMPILER ${CMAKE_C_COMPILER})
 
-add_subdirectory(lexbor)
+add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core ${CMAKE_BINARY_DIR}/tactilebrowser_core EXCLUDE_FROM_ALL)
+
+# Add LVGL subdirectory
+add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl ${CMAKE_BINARY_DIR}/lvgl EXCLUDE_FROM_ALL)
 
 add_executable(TactileBrowser Source/main.c)
 
 target_include_directories(TactileBrowser PRIVATE
     ${CURL_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/lvgl
-    ${CMAKE_SOURCE_DIR}/lvgl/src
-    ${CMAKE_SOURCE_DIR}/lvgl/src/drivers
-    ${CMAKE_SOURCE_DIR}/lvgl/src/drivers/sdl
-    ${CMAKE_SOURCE_DIR}/lexbor/include
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/include
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl
     ${SDL2_INCLUDE_DIRS}
 )
 
 target_link_libraries(TactileBrowser
+    tactilebrowser_core
     lvgl
-    lexbor_static
     ${SDL2_LIBRARIES}
     ${CURL_LIBRARIES}
+    m
 )
 
 if(WIN32)
