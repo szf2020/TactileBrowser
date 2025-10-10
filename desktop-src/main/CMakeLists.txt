@@ -3,7 +3,7 @@ project(tactilebrowser C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-parameter")
-set(CMAKE_BUILD_TYPE Debug)
+# Don't set CMAKE_BUILD_TYPE here - let it be set from command line
 
 # Allow user override of SDL2 paths (passed via -D)
 if(NOT DEFINED SDL2_INCLUDE_DIR OR NOT DEFINED SDL2_LIBRARY)

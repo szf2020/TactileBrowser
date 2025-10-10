@@ -16,14 +16,14 @@ runs:
       run: echo "CACHE_KEY_SUFFIX=$(git hash-object desktop-src/CMakeLists.txt)" >> $GITHUB_ENV
 
     - name: Cache SDL2 source
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cache-sdl2-src
       with:
         path: sdl2-source
         key: sdl2-source-v1
 
     - name: Cache SDL2 builds
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cache-sdl2-builds
       with:
         path: sdl2-build-universal
@@ -45,8 +45,13 @@ runs:
           -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=./install
-        make
+        make -j$(nproc)
         make install
+        # Verify the build succeeded
+        if [ ! -f "./install/lib/libSDL2-2.0.0.dylib" ] && [ ! -f "./install/lib/libSDL2.dylib" ]; then
+          echo "SDL2 build failed - no dylib found"
+          exit 1
+        fi
 
     # Verify SDL2 dylib exists
     - name: Verify SDL2 build exists
@@ -87,10 +92,10 @@ runs:
         ln -sf libSDL2.dylib libSDL2-2.0.0.dylib
 
     - name: Cache CMake build files
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cmake-cache
       with:
-        path: desktop-src/CMakeFiles
+        path: desktop-src/build/CMakeFiles
         key: cmake-build-universal-${{ env.CACHE_KEY_SUFFIX }}
         restore-keys: cmake-build-universal-
 
@@ -108,20 +113,28 @@ runs:
       shell: bash
       working-directory: desktop-src
       run: |
-        cmake . -DCMAKE_BUILD_TYPE=Debug \
+        mkdir -p build
+        cd build
+        echo "Running cmake with SDL2 paths..."
+        echo "SDL2_LIBRARY: $GITHUB_WORKSPACE/sdl2-universal/lib/libSDL2.dylib"
+        echo "SDL2_INCLUDE_DIR: $GITHUB_WORKSPACE/sdl2-universal/include"
+        ls -la $GITHUB_WORKSPACE/sdl2-universal/lib/
+        ls -la $GITHUB_WORKSPACE/sdl2-universal/include/
+        cmake .. -DCMAKE_BUILD_TYPE=Release \
                 -DSDL2_LIBRARY=$GITHUB_WORKSPACE/sdl2-universal/lib/libSDL2.dylib \
-                -DSDL2_INCLUDE_DIR=$GITHUB_WORKSPACE/sdl2-universal/include
-        make
+                -DSDL2_INCLUDE_DIR=$GITHUB_WORKSPACE/sdl2-universal/include \
+                -DCMAKE_VERBOSE_MAKEFILE=ON
+        make VERBOSE=1
 
     - name: Bundle SDL2 dylib with app and fix paths
       shell: bash
-      working-directory: desktop-src
+      working-directory: desktop-src/build
       run: |
         # Create Frameworks directory in the app bundle
         mkdir -p main/TactileBrowser.app/Contents/Frameworks
 
         # Copy SDL2 dylib to the app bundle
-        cp ../sdl2-universal/lib/libSDL2.dylib main/TactileBrowser.app/Contents/Frameworks/
+        cp ../../sdl2-universal/lib/libSDL2.dylib main/TactileBrowser.app/Contents/Frameworks/
 
         # Also create the versioned dylib that the app expects
         cd main/TactileBrowser.app/Contents/Frameworks/
@@ -137,10 +150,10 @@ runs:
 
     - name: Create distribution directory
       shell: bash
-      working-directory: desktop-src
+      working-directory: desktop-src/build
       run: |
-        mkdir -p ../dist
-        cp -r main/TactileBrowser.app ../dist/
+        mkdir -p ../../dist
+        cp -r main/TactileBrowser.app ../../dist/
 
     - name: Archive macOS app bundle (universal)
       if: inputs.upload_artifact == 'true'
