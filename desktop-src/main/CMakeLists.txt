@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
-project(tactilebrowser C)
+project(tactilebrowser C CXX)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-parameter")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 # Don't set CMAKE_BUILD_TYPE here - let it be set from command line
 
 # Allow user override of SDL2 paths (passed via -D)
@@ -59,12 +61,14 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core ${CMAKE_BINARY_DIR}/
 # Add LVGL subdirectory
 add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl ${CMAKE_BINARY_DIR}/lvgl EXCLUDE_FROM_ALL)
 
-add_executable(TactileBrowser Source/main.c)
+add_executable(TactileBrowser Source/main.cpp)
 
 target_include_directories(TactileBrowser PRIVATE
     ${CURL_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/include
     ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl/src
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl/src/drivers/sdl
     ${SDL2_INCLUDE_DIRS}
 )
 

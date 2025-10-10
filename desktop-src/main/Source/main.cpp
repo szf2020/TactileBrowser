@@ -3,25 +3,108 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <SDL2/SDL.h>
-#include <lexbor/html/html.h>
-#include <lexbor/dom/interfaces/document.h>
-#include <lexbor/dom/interfaces/element.h>
 #include <lvgl.h>
+#include <tactilebrowser_core.h>
+#include <lv_sdl_keyboard.h>
+#include <lv_sdl_mouse.h>
+#include <lv_sdl_mousewheel.h>
+#include <lv_sdl_window.h>
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 #define MAX_TABS 10
 #define MAX_URL_LENGTH 512
 
-typedef struct {
-    char *data;
-    size_t size;
-} MemoryBuffer;
+// LVGL Renderer implementation for tactilebrowser_core
+class LVGLRenderer {
+public:
+    RenderInterface interface;
+    
+    LVGLRenderer() {
+        // Initialize the interface function pointers
+        interface.init = lvgl_init;
+        interface.cleanup = lvgl_cleanup;
+        interface.create_label = lvgl_create_label;
+        interface.create_button = lvgl_create_button;
+        interface.create_container = lvgl_create_container;
+        interface.set_text_color = lvgl_set_text_color;
+        interface.set_bg_color = lvgl_set_bg_color;
+        interface.set_text_align = lvgl_set_text_align;
+        interface.clear_container = lvgl_clear_container;
+        interface.get_height = lvgl_get_height;
+        interface.platform_data = nullptr;
+    }
+
+private:
+    static bool lvgl_init(Renderer* renderer) {
+        // LVGL is already initialized in main
+        return true;
+    }
+
+    static void lvgl_cleanup(Renderer* renderer) {
+        // LVGL cleanup handled in main
+    }
+
+    static void* lvgl_create_label(Renderer* renderer, const char* text, int x, int y) {
+        lv_obj_t* container = (lv_obj_t*)renderer->platform_data;
+        lv_obj_t* label = lv_label_create(container);
+        lv_label_set_text(label, text);
+        lv_obj_set_pos(label, x, y);
+        lv_obj_set_width(label, lv_pct(100));
+        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+        lv_obj_set_style_text_color(label, lv_color_hex(0xE0E0E0), 0);
+        return label;
+    }
+
+    static void* lvgl_create_button(Renderer* renderer, const char* text, int x, int y) {
+        lv_obj_t* container = (lv_obj_t*)renderer->platform_data;
+        lv_obj_t* btn = lv_btn_create(container);
+        lv_obj_set_pos(btn, x, y);
+        lv_obj_t* label = lv_label_create(btn);
+        lv_label_set_text(label, text);
+        lv_obj_center(label);
+        return btn;
+    }
+
+    static void* lvgl_create_container(Renderer* renderer, int x, int y, int width, int height) {
+        lv_obj_t* parent = (lv_obj_t*)renderer->platform_data;
+        lv_obj_t* container = lv_obj_create(parent);
+        lv_obj_set_pos(container, x, y);
+        lv_obj_set_size(container, width, height);
+        lv_obj_set_style_bg_color(container, lv_color_hex(0x1E1E1E), 0);
+        lv_obj_set_style_border_width(container, 0, 0);
+        return container;
+    }
+
+    static void lvgl_set_text_color(Renderer* renderer, void* widget, uint32_t color) {
+        lv_obj_t* obj = (lv_obj_t*)widget;
+        lv_obj_set_style_text_color(obj, lv_color_hex(color), 0);
+    }
+
+    static void lvgl_set_bg_color(Renderer* renderer, void* widget, uint32_t color) {
+        lv_obj_t* obj = (lv_obj_t*)widget;
+        lv_obj_set_style_bg_color(obj, lv_color_hex(color), 0);
+    }
+
+    static void lvgl_set_text_align(Renderer* renderer, void* widget, int align) {
+        lv_obj_t* obj = (lv_obj_t*)widget;
+        lv_obj_set_style_text_align(obj, (lv_text_align_t)align, 0);
+    }
+
+    static void lvgl_clear_container(Renderer* renderer, void* container) {
+        lv_obj_t* obj = (lv_obj_t*)container;
+        lv_obj_clean(obj);
+    }
+
+    static int lvgl_get_height(Renderer* renderer, void* widget) {
+        lv_obj_t* obj = (lv_obj_t*)widget;
+        return lv_obj_get_height(obj);
+    }
+};
 
 typedef struct {
     char url[MAX_URL_LENGTH];
     lv_obj_t *content_area;
-    lv_obj_t *scroll_container;
 } Tab;
 
 // Global variables
@@ -32,38 +115,23 @@ static lv_obj_t *address_bar;
 static lv_obj_t *tabview;
 static lv_indev_t *mouse_indev, *kb_indev, *wheel_indev;
 static lv_group_t *input_group;
+static LVGLRenderer* lvgl_renderer = nullptr;
+static Renderer renderer_wrapper;
 
-// CURL callback - renamed to avoid conflict
-static size_t http_write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t real_size = size * nmemb;
-    MemoryBuffer *mem = (MemoryBuffer *)userp;
-    
-    char *ptr = realloc(mem->data, mem->size + real_size + 1);
-    if (!ptr) {
-        fprintf(stderr, "Memory reallocation failed\n");
-        return 0;
-    }
-    
-    mem->data = ptr;
-    memcpy(&(mem->data[mem->size]), contents, real_size);
-    mem->size += real_size;
-    mem->data[mem->size] = 0;
-    return real_size;
-}
+// Forward declaration for CURL callback
+static size_t http_write_callback(void *contents, size_t size, size_t nmemb, void *userp);
 
-// Download HTML content
-char *download_html(const char *url) {
+// CURL callback for tactilebrowser_core
+static RenderResult download_html_callback(const char* url, MemoryBuffer* buffer) {
     CURL *curl = curl_easy_init();
-    MemoryBuffer chunk = {0};
-    
     if (!curl) {
-        fprintf(stderr, "curl_easy_init failed\n");
-        return NULL;
+        return RENDER_ERROR_NETWORK;
     }
 
+    memory_buffer_init(buffer);
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, buffer);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "TactileBrowser/1.0");
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
@@ -72,141 +140,40 @@ char *download_html(const char *url) {
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
 
     CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-        fprintf(stderr, "curl_easy_perform failed: %s\n", curl_easy_strerror(res));
-        free(chunk.data);
-        chunk.data = NULL;
-    }
-    
     curl_easy_cleanup(curl);
-    return chunk.data;
-}
 
-// Safe string duplication
-char* safe_strdup(const char* s) {
-    if (!s) return NULL;
-    size_t len = strlen(s) + 1;
-    char* result = malloc(len);
-    if (result) memcpy(result, s, len);
-    return result;
-}
-
-char* safe_strndup(const char* s, size_t n) {
-    if (!s) return NULL;
-    size_t len = strlen(s);
-    if (n < len) len = n;
-    char* result = malloc(len + 1);
-    if (result) {
-        memcpy(result, s, len);
-        result[len] = '\0';
-    }
-    return result;
-}
-
-// Extract title from HTML document
-char* extract_title(lxb_html_document_t *document) {
-    lxb_dom_element_t *root = lxb_dom_document_element(lxb_dom_interface_document(document));
-    if (!root) return safe_strdup("Untitled");
-
-    lxb_dom_collection_t *collection = lxb_dom_collection_make(lxb_dom_interface_document(document), 16);
-    if (!collection) return safe_strdup("Untitled");
-
-    lxb_status_t status = lxb_dom_elements_by_tag_name(root, collection, 
-                                                       (const lxb_char_t *)"title", 5);
-    
-    if (status != LXB_STATUS_OK || lxb_dom_collection_length(collection) == 0) {
-        lxb_dom_collection_destroy(collection, true);
-        return safe_strdup("Untitled");
+    if (res != CURLE_OK) {
+        memory_buffer_free(buffer);
+        return RENDER_ERROR_NETWORK;
     }
 
-    lxb_dom_element_t *title_element = lxb_dom_collection_element(collection, 0);
-    size_t text_len = 0;
-    lxb_char_t *text = lxb_dom_node_text_content(lxb_dom_interface_node(title_element), &text_len);
-    
-    char *result = (text && text_len > 0) ? 
-                   safe_strndup((const char*)text, text_len) : 
-                   safe_strdup("Untitled");
-    
-    if (text) lxb_dom_document_destroy_text(lxb_dom_interface_document(document), text);
-    lxb_dom_collection_destroy(collection, true);
-    
-    return result ? result : safe_strdup("Untitled");
+    return RENDER_SUCCESS;
 }
 
-// Render HTML elements to LVGL objects
-void render_html_content(lxb_html_document_t *document, lv_obj_t *container) {
-    lv_obj_clean(container);
-    
-    lxb_dom_element_t *root = lxb_dom_document_element(lxb_dom_interface_document(document));
-    if (!root) return;
+// CURL write callback
+static size_t http_write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
+    size_t real_size = size * nmemb;
+    MemoryBuffer *mem = (MemoryBuffer *)userp;
 
-    lxb_dom_collection_t *body_collection = lxb_dom_collection_make(lxb_dom_interface_document(document), 4);
-    if (!body_collection) return;
-
-    if (lxb_dom_elements_by_tag_name(root, body_collection, (const lxb_char_t *)"body", 4) != LXB_STATUS_OK ||
-        lxb_dom_collection_length(body_collection) == 0) {
-        lxb_dom_collection_destroy(body_collection, true);
-        return;
+    char *ptr = (char*)realloc(mem->data, mem->size + real_size + 1);
+    if (!ptr) {
+        return 0;
     }
 
-    lxb_dom_element_t *body = lxb_dom_collection_element(body_collection, 0);
-    if (!body) {
-        lxb_dom_collection_destroy(body_collection, true);
-        return;
-    }
-
-    lxb_dom_node_t *node = lxb_dom_interface_node(body)->first_child;
-    lv_coord_t y_offset = 10;
-
-    while (node && y_offset < 2000) { // Prevent infinite scrolling
-        if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
-            const lxb_tag_id_t tag_id = lxb_dom_element_tag_id((lxb_dom_element_t *)node);
-            
-            if (tag_id == LXB_TAG_P || tag_id == LXB_TAG_H1 || tag_id == LXB_TAG_H2 || 
-                tag_id == LXB_TAG_H3 || tag_id == LXB_TAG_A || tag_id == LXB_TAG_DIV) {
-                
-                size_t text_len = 0;
-                lxb_char_t *text = lxb_dom_node_text_content(node, &text_len);
-                
-                if (text && text_len > 0) {
-                    char *str = safe_strndup((const char *)text, text_len);
-                    if (str && strlen(str) > 0) {
-                        lv_obj_t *label = lv_label_create(container);
-                        lv_label_set_text(label, str);
-                        lv_obj_set_width(label, SCREEN_WIDTH - 40);
-                        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
-                        
-                        // Style based on tag type - use available font
-                        if (tag_id == LXB_TAG_H1 || tag_id == LXB_TAG_H2 || tag_id == LXB_TAG_H3) {
-                            lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0); // Use available font
-                            lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
-                            y_offset += 10;
-                        } else if (tag_id == LXB_TAG_A) {
-                            lv_obj_set_style_text_color(label, lv_color_hex(0x4A90E2), 0);
-                        } else {
-                            lv_obj_set_style_text_color(label, lv_color_hex(0xE0E0E0), 0);
-                        }
-                        
-                        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 20, y_offset);
-                        y_offset += lv_obj_get_height(label) + 10;
-                    }
-                    free(str);
-                    lxb_dom_document_destroy_text(lxb_dom_interface_document(document), text);
-                }
-            }
-        }
-        node = node->next;
-    }
-    
-    lxb_dom_collection_destroy(body_collection, true);
+    mem->data = ptr;
+    memcpy(&(mem->data[mem->size]), contents, real_size);
+    mem->size += real_size;
+    mem->data[mem->size] = 0;
+    return real_size;
 }
 
-// Load URL into specified tab
+// Load URL into specified tab using tactilebrowser_core
 void load_url(const char *url, int tab_index) {
     if (!url || strlen(url) == 0 || tab_index >= MAX_TABS) return;
-    
+
     // Validate URL format
     if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) {
+        lv_obj_clean(tabs[tab_index].content_area);
         lv_obj_t *error_label = lv_label_create(tabs[tab_index].content_area);
         lv_label_set_text(error_label, "Invalid URL format. Please use http:// or https://");
         lv_obj_center(error_label);
@@ -214,13 +181,8 @@ void load_url(const char *url, int tab_index) {
         return;
     }
 
-    // FIX: Create a temporary buffer to avoid overlap
-    char temp_url[MAX_URL_LENGTH];
-    strncpy(temp_url, url, MAX_URL_LENGTH - 1);
-    temp_url[MAX_URL_LENGTH - 1] = '\0';
-    
-    // Update tab URL using the temporary buffer
-    strncpy(tabs[tab_index].url, temp_url, MAX_URL_LENGTH - 1);
+    // Update tab URL
+    strncpy(tabs[tab_index].url, url, MAX_URL_LENGTH - 1);
     tabs[tab_index].url[MAX_URL_LENGTH - 1] = '\0';
 
     // Show loading message
@@ -230,45 +192,33 @@ void load_url(const char *url, int tab_index) {
     lv_obj_center(loading_label);
     lv_obj_set_style_text_color(loading_label, lv_color_hex(0xFFD93D), 0);
 
-    // Download HTML
-    char *html = download_html(temp_url); // Use temp_url instead of url
-    if (!html) {
+    // Set renderer platform data to current tab's content area
+    renderer_wrapper.platform_data = tabs[tab_index].content_area;
+
+    // Use tactilebrowser_core to render the URL
+    RenderResult result = tactilebrowser_render_url(url, tabs[tab_index].content_area, SCREEN_WIDTH - 40, SCREEN_HEIGHT - 100);
+
+    if (result != RENDER_SUCCESS) {
         lv_obj_clean(tabs[tab_index].content_area);
         lv_obj_t *error_label = lv_label_create(tabs[tab_index].content_area);
-        lv_label_set_text(error_label, "Failed to load page. Check your connection.");
+        const char* error_msg = "Failed to load page.";
+        switch (result) {
+            case RENDER_ERROR_NETWORK:
+                error_msg = "Network error. Check your connection.";
+                break;
+            case RENDER_ERROR_PARSE:
+                error_msg = "Failed to parse HTML content.";
+                break;
+            case RENDER_ERROR_MEMORY:
+                error_msg = "Memory allocation error.";
+                break;
+            default:
+                break;
+        }
+        lv_label_set_text(error_label, error_msg);
         lv_obj_center(error_label);
         lv_obj_set_style_text_color(error_label, lv_color_hex(0xFF6B6B), 0);
-        return;
     }
-
-    // Parse HTML
-    lxb_html_document_t *document = lxb_html_document_create();
-    if (!document) {
-        free(html);
-        return;
-    }
-
-    if (lxb_html_document_parse(document, (const lxb_char_t *)html, strlen(html)) != LXB_STATUS_OK) {
-        lv_obj_clean(tabs[tab_index].content_area);
-        lv_obj_t *error_label = lv_label_create(tabs[tab_index].content_area);
-        lv_label_set_text(error_label, "Failed to parse HTML content");
-        lv_obj_center(error_label);
-        lv_obj_set_style_text_color(error_label, lv_color_hex(0xFF6B6B), 0);
-        lxb_html_document_destroy(document);
-        free(html);
-        return;
-    }
-
-    // Extract title and update tab (simplified for space)
-    char *title = extract_title(document);
-    
-    // Render content
-    render_html_content(document, tabs[tab_index].content_area);
-
-    // Cleanup
-    free(title);
-    lxb_html_document_destroy(document);
-    free(html);
 }
 
 // Event handlers
@@ -286,14 +236,14 @@ static void refresh_event_cb(lv_event_t *e) {
 static void new_tab_event_cb(lv_event_t *e) {
     if (tab_count < MAX_TABS) {
         strncpy(tabs[tab_count].url, "https://example.com", MAX_URL_LENGTH - 1);
-        
+
         lv_obj_t *tab_content = lv_tabview_add_tab(tabview, "New Tab");
         tabs[tab_count].content_area = lv_obj_create(tab_content);
         lv_obj_set_size(tabs[tab_count].content_area, LV_PCT(100), LV_PCT(100));
         lv_obj_set_scrollbar_mode(tabs[tab_count].content_area, LV_SCROLLBAR_MODE_AUTO);
         lv_obj_set_style_bg_color(tabs[tab_count].content_area, lv_color_hex(0x1E1E1E), 0);
         lv_obj_set_style_border_width(tabs[tab_count].content_area, 0, 0);
-        
+
         tab_count++;
         lv_tabview_set_act(tabview, tab_count - 1, false);
     }
@@ -316,7 +266,7 @@ static void trigger_address_bar_load(void) {
 static void handle_mouse_event(SDL_Event *event) {
     // Handle mouse events manually since lv_sdl_mouse_handler might not be available
     static bool mouse_pressed = false;
-    
+
     switch (event->type) {
         case SDL_MOUSEBUTTONDOWN:
             if (event->button.button == SDL_BUTTON_LEFT) {
@@ -351,12 +301,11 @@ static void handle_keyboard_event(SDL_Event *event) {
     // Handle keyboard events manually
     if (event->type == SDL_KEYDOWN) {
         SDL_Keycode key = event->key.keysym.sym;
-        
+
         // Handle special keys
         switch (key) {
             case SDLK_RETURN:
                 // Trigger address bar loading if address bar has focus
-                // In LVGL, check if address bar is focused by checking the current focused object
                 if (lv_group_get_focused(input_group) == address_bar) {
                     trigger_address_bar_load();
                 }
@@ -371,7 +320,7 @@ static void handle_keyboard_event(SDL_Event *event) {
                     const char *current_text = lv_textarea_get_text(address_bar);
                     size_t len = strlen(current_text);
                     if (len > 0) {
-                        char *new_text = malloc(len);
+                        char *new_text = (char*)malloc(len);
                         if (new_text) {
                             strncpy(new_text, current_text, len - 1);
                             new_text[len - 1] = '\0';
@@ -383,7 +332,7 @@ static void handle_keyboard_event(SDL_Event *event) {
                 break;
         }
     }
-    
+
     if (event->type == SDL_TEXTINPUT) {
         // Handle text input for address bar
         if (lv_group_get_focused(input_group) == address_bar) {
@@ -399,7 +348,7 @@ static void handle_keyboard_event(SDL_Event *event) {
 void init_browser_ui(void) {
     // Create input group first
     input_group = lv_group_create();
-    
+
     // Main container
     lv_obj_t *main_cont = lv_obj_create(lv_screen_active());
     lv_obj_set_size(main_cont, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -457,14 +406,14 @@ void init_browser_ui(void) {
     lv_obj_set_scrollbar_mode(tabs[0].content_area, LV_SCROLLBAR_MODE_AUTO);
     lv_obj_set_style_bg_color(tabs[0].content_area, lv_color_hex(0x1E1E1E), 0);
     lv_obj_set_style_border_width(tabs[0].content_area, 0, 0);
-    
+
     strncpy(tabs[0].url, "https://example.com", MAX_URL_LENGTH - 1);
 
     // Add input objects to group
     lv_group_add_obj(input_group, address_bar);
     lv_group_add_obj(input_group, btn_refresh);
     lv_group_add_obj(input_group, btn_new_tab);
-    
+
     // Set keyboard input device to use the group
     if (kb_indev) {
         lv_indev_set_group(kb_indev, input_group);
@@ -481,7 +430,7 @@ int main(void) {
 
     // Initialize LVGL
     lv_init();
-    
+
     // Create display
     lv_display_t *display = lv_sdl_window_create(SCREEN_WIDTH, SCREEN_HEIGHT);
     if (!display) {
@@ -494,7 +443,7 @@ int main(void) {
     mouse_indev = lv_sdl_mouse_create();
     kb_indev = lv_sdl_keyboard_create();
     wheel_indev = lv_sdl_mousewheel_create();
-    
+
     if (!mouse_indev || !kb_indev || !wheel_indev) {
         fprintf(stderr, "Failed to create input devices\n");
         SDL_Quit();
@@ -504,9 +453,25 @@ int main(void) {
     // Initialize CURL
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
+    // Initialize tactilebrowser_core
+    if (!tactilebrowser_core_init()) {
+        fprintf(stderr, "Failed to initialize tactilebrowser_core\n");
+        curl_global_cleanup();
+        SDL_Quit();
+        return 1;
+    }
+
+    // Set up LVGL renderer
+    lvgl_renderer = new LVGLRenderer();
+    renderer_wrapper.interface = &lvgl_renderer->interface;
+    renderer_wrapper.platform_data = nullptr;
+
+    tactilebrowser_set_renderer(&lvgl_renderer->interface);
+    tactilebrowser_set_html_downloader(download_html_callback);
+
     // Initialize browser UI
     init_browser_ui();
-    
+
     // Load initial page
     load_url(tabs[0].url, 0);
 
@@ -519,7 +484,7 @@ int main(void) {
                 running = false;
                 break;
             }
-            
+
             // Handle different event types with custom functions
             switch (event.type) {
                 case SDL_MOUSEMOTION:
@@ -537,17 +502,15 @@ int main(void) {
                     break;
             }
         }
-        
+
         // Handle LVGL tasks
         lv_timer_handler();
         SDL_Delay(5); // ~200 FPS limit
     }
 
     // Cleanup
-    for (int i = 0; i < tab_count; i++) {
-        // Tabs are automatically cleaned up by LVGL
-    }
-    
+    delete lvgl_renderer;
+    tactilebrowser_core_cleanup();
     lv_group_del(input_group);
     curl_global_cleanup();
     SDL_Quit();
