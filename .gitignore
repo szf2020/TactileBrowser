@@ -443,3 +443,5 @@ CMakeUserPresets.json
 .DS_Store
 .tactility
 build
+
+.pio/
