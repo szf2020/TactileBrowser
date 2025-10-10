@@ -52,7 +52,7 @@ set(SDL2_LIBRARIES ${SDL2_LIBRARIES} CACHE STRING "" FORCE)
 set(CMAKE_DISABLE_FIND_PACKAGE_SDL2 TRUE)
 
 # Set CXX compiler to C compiler to avoid C++ issues with LVGL
-set(CMAKE_CXX_COMPILER ${CMAKE_C_COMPILER})
+# set(CMAKE_CXX_COMPILER ${CMAKE_C_COMPILER})  # Disabled - core library now uses C++
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core ${CMAKE_BINARY_DIR}/tactilebrowser_core EXCLUDE_FROM_ALL)
 

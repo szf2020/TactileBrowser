@@ -83,4 +83,4 @@ else()
 endif()
 
 # Set C++ standard
-set_target_properties(tactilebrowser_core PROPERTIES CXX_STANDARD 17 LINKER_LANGUAGE C)
+set_target_properties(tactilebrowser_core PROPERTIES CXX_STANDARD 17)
