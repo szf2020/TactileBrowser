@@ -652,7 +652,7 @@ void processKB_BROWSER() {
                 newLineAdded = true;
             }
         }
-        else if (inchar == 18) { // FN - URL input
+        else if (inchar == 14) { // FN+TAB - URL input
             if (CurrentBROWSERState == BROWSER_VIEW) {
                 CurrentBROWSERState = BROWSER_URL_INPUT;
                 CurrentFrameState = &urlScreen;
