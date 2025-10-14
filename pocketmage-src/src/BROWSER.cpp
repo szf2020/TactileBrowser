@@ -71,7 +71,7 @@ static const char* wifiStatusToString(wl_status_t status) {
         case WL_IDLE_STATUS:        return "Idle";
         case WL_CONNECTED:          return "Connected";
         case WL_NO_SSID_AVAIL:      return "SSID not found";
-        case WL_CONNECT_FAILED:     return "Auth failed";
+        case WL_CONNECT_FAILED:      return "Auth failed";
         case WL_CONNECTION_LOST:    return "Connection lost";
         case WL_DISCONNECTED:       return "Disconnected";
         case WL_SCAN_COMPLETED:     return "Scan completed";
@@ -296,7 +296,7 @@ bool load_url(const String& url, int tab_index) {
     }
 
     if (!ensureWifiConnected(true)) {
-        browserAppend("Error: Wi-Fi not connected. Use SH+FN to configure.");
+        browserAppend("Error: Wi-Fi not connected. Use SH to configure.");
         browserAppend("Note: libcurl_esp32 requires an active Wi-Fi link.");
         OLED().oledWord("Wi-Fi failed");
         newLineAdded = true;
@@ -420,7 +420,7 @@ void drawBrowser() {
         // Status bar
         switch (CurrentBROWSERState) {
             case BROWSER_VIEW:
-                EINK().drawStatusBar("TAB->tabs | FN->URL | SH+FN->WiFi | ESC->home");
+                EINK().drawStatusBar("TAB->tabs | FN->URL | SH->WiFi | ESC->home");
                 break;
             case BROWSER_URL_INPUT:
                 EINK().drawStatusBar("Enter URL | CR->load | ESC->cancel");
@@ -654,23 +654,23 @@ void processKB_BROWSER() {
         }
         else if (inchar == 18) { // FN - URL input
             if (CurrentBROWSERState == BROWSER_VIEW) {
-                if (CurrentKBState == SHIFT) {
-                    start_wifi_setup();
-                } else {
-                    CurrentBROWSERState = BROWSER_URL_INPUT;
-                    CurrentFrameState = &urlScreen;
-                    current_line = tabs[active_tab].url;
-                    update_url_display();
-                    newLineAdded = true;
-                }
+                CurrentBROWSERState = BROWSER_URL_INPUT;
+                CurrentFrameState = &urlScreen;
+                current_line = tabs[active_tab].url;
+                update_url_display();
+                newLineAdded = true;
             } else {
                 if (CurrentKBState == FUNC) CurrentKBState = NORMAL;
                 else CurrentKBState = FUNC;
             }
         }
         else if (inchar == 17) { // Shift
-            if (CurrentKBState == SHIFT) CurrentKBState = NORMAL;
-            else CurrentKBState = SHIFT;
+            if (CurrentBROWSERState == BROWSER_VIEW) {
+                start_wifi_setup();
+            } else {
+                if (CurrentKBState == SHIFT) CurrentKBState = NORMAL;
+                else CurrentKBState = SHIFT;
+            }
         }
         else if (inchar == 19 || inchar == 12) { // Left arrow - scroll up
             if (dynamicScroll < CurrentFrameState->source->size() - 10) {
