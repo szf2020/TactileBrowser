@@ -21,9 +21,9 @@ runs:
       with:
         path: |
           wasm-src/build
-        key: wasm-build-${{ github.sha }}
+        key: wasm-build-new-${{ github.sha }}
         restore-keys: |
-          wasm-build-
+          wasm-build-new-
 
     - name: Debug directory structure
       shell: bash
