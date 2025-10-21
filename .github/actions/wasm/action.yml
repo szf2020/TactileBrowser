@@ -49,13 +49,9 @@ runs:
       working-directory: wasm-src
       run: |
         mkdir -p ../dist
-
-        find build/
-        find build/ -name "TactileBrowserWasm.*"
-        
-        cp build/TactileBrowserWasm.* ../dist/
-        cp index.html ../dist/
-        cp glue.js ../dist/
+        cp build/main/TactileBrowserWasm.* ../dist/
+        cp main/Source/index.html ../dist/
+        cp main/Source/glue.js ../dist/
 
     - name: Upload WASM app dist
       if: inputs.deploy == 'true'
