@@ -31,4 +31,4 @@ target_link_libraries(TactileBrowserWasm
     m
 )
 
-set_target_properties(TactileBrowserWasm PROPERTIES LINK_FLAGS "-sUSE_SDL=2 -sASYNCIFY -sALLOW_MEMORY_GROWTH=1 -sEXPORT_ES6=1 -sMODULARIZE=1")
+set_target_properties(TactileBrowserWasm PROPERTIES LINK_FLAGS "-sUSE_SDL=2 -sASYNCIFY -sALLOW_MEMORY_GROWTH=1")
