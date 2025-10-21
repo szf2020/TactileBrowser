@@ -8,4 +8,4 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add subdirectory with main app code
-add_subdirectory(Source)
+add_subdirectory(main)
