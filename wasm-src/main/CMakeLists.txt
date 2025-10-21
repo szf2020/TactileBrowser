@@ -11,8 +11,8 @@ set(CMAKE_EXECUTABLE_SUFFIX ".html")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sUSE_SDL=2 -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY -sEXPORT_ES6=1 -sMODULARIZE=1")
 
 # Add LVGL and core library
-add_subdirectory(${CMAKE_SOURCE_DIR}/../../tactilebrowser_core ${CMAKE_BINARY_DIR}/tactilebrowser_core EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl ${CMAKE_BINARY_DIR}/lvgl EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core ${CMAKE_BINARY_DIR}/tactilebrowser_core EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl ${CMAKE_BINARY_DIR}/lvgl EXCLUDE_FROM_ALL)
 
 # LVGL include paths
 target_include_directories(lvgl PRIVATE ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl/src)
@@ -20,9 +20,9 @@ target_include_directories(lvgl PRIVATE ${CMAKE_SOURCE_DIR}/../../tactilebrowser
 add_executable(TactileBrowserWasm Source/main.cpp)
 
 target_include_directories(TactileBrowserWasm PRIVATE
-    ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/include
-    ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl
-    ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl/src
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/include
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl
+    ${CMAKE_SOURCE_DIR}/../tactilebrowser_core/lvgl/src
 )
 
 target_link_libraries(TactileBrowserWasm
