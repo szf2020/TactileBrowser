@@ -19,7 +19,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/../../tactilebrowser_core/lvgl/src
 )
 
-add_executable(TactileBrowserWasm main.cpp)
+add_executable(TactileBrowserWasm Sounce/main.cpp)
 
 # Link core library, lvgl, and other needed libs
 target_link_libraries(TactileBrowserWasm
