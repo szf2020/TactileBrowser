@@ -1,4 +1,4 @@
-name: 'Build PocketMage (ESP32-S3)'
+name: 'Build for PocketMage'
 description: 'Build TactileBrowser for the PocketMage'
 
 inputs:
@@ -58,6 +58,6 @@ runs:
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: browser-package
+        name: TactileBrowser_pocketmage
         path: pocketmage-src/browser.tar
         retention-days: 30

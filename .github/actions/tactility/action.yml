@@ -37,6 +37,6 @@ runs:
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: TactileBrowser_esp
+        name: TactileBrowser_tactility
         path: tactility-src/build/TactileBrowser.app
         retention-days: 30

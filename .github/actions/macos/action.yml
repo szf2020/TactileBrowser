@@ -1,4 +1,4 @@
-name: 'Build Desktop Universal Binary (macOS)'
+name: 'Build for MacOS (Universal)'
 
 inputs:
   upload_artifact:
@@ -59,13 +59,13 @@ runs:
       run: |
         echo "Checking for SDL2 dylib..."
         if [ -f "./sdl2-build-universal/install/lib/libSDL2-2.0.0.dylib" ]; then
-          echo "✓ SDL2 dylib found"
+          echo "SDL2 dylib found"
           ls -la "./sdl2-build-universal/install/lib/"
         elif [ -f "./sdl2-build-universal/install/lib/libSDL2.dylib" ]; then
-          echo "✓ SDL2 dylib found (generic name)"
+          echo "SDL2 dylib found (generic name)"
           ls -la "./sdl2-build-universal/install/lib/"
         else
-          echo "✗ SDL2 dylib NOT found"
+          echo "SDL2 dylib NOT found"
           echo "Contents of universal build directory:"
           find "./sdl2-build-universal" -name "*.dylib" 2>/dev/null || echo "No dylibs found"
         fi
@@ -159,6 +159,6 @@ runs:
       if: inputs.upload_artifact == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: TactileBrowser-macOS-universal
+        name: TactileBrowser_macOS
         path: dist/
         compression-level: 6

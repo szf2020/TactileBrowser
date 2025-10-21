@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TactileBrowser</title>
+  <style>
+    body { margin: 0; background: #0D1117; color: #fff; }
+    #canvas { display: block; margin: 0 auto; background: #1E1E1E; }
+    #address-bar { width: 600px; font-size: 1.2em; }
+    #controls { margin: 10px; }
+    #status { color: #FFD93D; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <input type="text" id="address-bar" value="https://example.com">
+    <button onclick="loadUrl()">Go</button>
+    <span id="status"></span>
+  </div>
+  <canvas id="canvas" width="800" height="600"></canvas>
+  <script src="glue.js"></script>
+  <script>
+    // UI event binding
+    window.loadUrl = function() {
+      const url = document.getElementById('address-bar').value;
+      window.TactileBrowserWasm.loadUrl(url);
+    };
+  </script>
+</body>
+</html>

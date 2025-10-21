@@ -1,0 +1,62 @@
+name: 'Build for WASM'
+description: 'Build TactileBrowser for WASM using Emscripten'
+
+inputs:
+  deploy:
+    description: 'Whether to deploy/upload the built WASM app'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: 3.1.55
+
+    - name: Cache Emscripten build files
+      uses: actions/cache@v4
+      id: emcc-cache
+      with:
+        path: |
+          wasm-src/build
+        key: wasm-build-${{ github.sha }}
+        restore-keys: |
+          wasm-build-
+
+    - name: Debug directory structure
+      shell: bash
+      working-directory: wasm-src
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Contents of wasm-src:"
+        ls -la
+        echo "Looking for CMakeLists.txt files:"
+        find . -name "CMakeLists.txt" -exec echo "Found: {}" \; -exec head -5 {} \;
+
+    - name: Build WASM app using CMake and Ninja
+      shell: bash
+      working-directory: wasm-src
+      run: |
+        mkdir -p build
+        cd build
+        emcmake cmake .. -DCMAKE_BUILD_TYPE=Release
+        emmake make -j$(nproc)
+
+    - name: Prepare dist directory
+      shell: bash
+      working-directory: wasm-src
+      run: |
+        mkdir -p ../dist
+        cp build/TactileBrowserWasm.* ../dist/
+        cp index.html ../dist/
+        cp glue.js ../dist/
+
+    - name: Upload WASM app dist
+      if: inputs.deploy == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: TactileBrowser-wasm
+        path: wasm-src/dist/
+        compression-level: 6

@@ -9,33 +9,33 @@ on:
 
 jobs:
   desktop-build-universal:
-    name: Build Desktop Universal Binary (macOS)
+    name: Build for MacOS (Universal)
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build Desktop Universal Binary
-        uses: ./.github/actions/desktop
+      - name: Build for MacOS (Universal)
+        uses: ./.github/actions/macos
         with:
           upload_artifact: 'true'
 
   pocketmage-build:
-    name: Build PocketMage (ESP32-S3)
+    name: Build for PocketMage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build PocketMage firmware
+      - name: Build PocketMage app
         uses: ./.github/actions/pocketmage
         with:
           upload_artifact: 'true'
 
   tactility-build:
-    name: Build Tactility (ESP-IDF)
+    name: Build for Tactility
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -47,3 +47,16 @@ jobs:
         with:
           upload_artifact: 'true'
           use_custom_sdk: 'false'
+  
+  wasm-build:
+    name: Build for WASM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build WASM app
+        uses: ./.github/actions/wasm
+        with:
+          deploy: 'true'
