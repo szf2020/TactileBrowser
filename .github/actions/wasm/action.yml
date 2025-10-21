@@ -15,16 +15,6 @@ runs:
       with:
         version: 3.1.55
 
-    - name: Cache Emscripten build files
-      uses: actions/cache@v4
-      id: emcc-cache
-      with:
-        path: |
-          wasm-src/build
-        key: wasm-build-new-${{ github.sha }}
-        restore-keys: |
-          wasm-build-new-
-
     - name: Debug directory structure
       shell: bash
       working-directory: wasm-src
