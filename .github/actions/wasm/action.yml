@@ -48,10 +48,10 @@ runs:
       shell: bash
       working-directory: wasm-src
       run: |
-        mkdir -p ../dist
-        cp build/main/TactileBrowserWasm.* ../dist/
-        cp main/Source/index.html ../dist/
-        cp main/Source/glue.js ../dist/
+        mkdir -p ./dist
+        cp build/main/TactileBrowserWasm.* ./dist/
+        cp main/Source/index.html ./dist/
+        cp main/Source/glue.js ./dist/
 
     - name: Upload WASM app dist
       if: inputs.deploy == 'true'
