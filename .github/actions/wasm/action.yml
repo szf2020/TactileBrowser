@@ -49,7 +49,7 @@ runs:
       working-directory: wasm-src
       run: |
         mkdir -p ../dist
-        cp build/TactileBrowserWasm.* ../dist/
+        cp main/TactileBrowserWasm.* ../dist/
         cp index.html ../dist/
         cp glue.js ../dist/
 
