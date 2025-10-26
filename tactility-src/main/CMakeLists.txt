@@ -4,7 +4,12 @@ file(GLOB_RECURSE SOURCE_FILES Source/*.cpp *.cpp)
 # Register component
 idf_component_register(
     SRCS ${SOURCE_FILES}
-    INCLUDE_DIRS "Source" "../../tactilebrowser_core/include"
+    # Include main sources + core public headers + lexbor sources so
+    # includes like <lexbor/html/html.h> are found when building the app.
+    INCLUDE_DIRS
+      "Source"
+      "../../tactilebrowser_core/include"
+      "../../tactilebrowser_core/lexbor/source"
     REQUIRES TactilitySDK esp_http_client newlib
 )
 
@@ -15,7 +20,6 @@ set_target_properties(${COMPONENT_LIB} PROPERTIES C_STANDARD 99)
 add_subdirectory(../../tactilebrowser_core ${CMAKE_BINARY_DIR}/tactilebrowser_core)
 
 # Link the entire tactilebrowser_core static library into the final ELF using --whole-archive.
-# Use generator expressions to reference the built library files so the linker gets the actual paths.
 target_link_libraries(${COMPONENT_LIB} PRIVATE
     -Wl,--whole-archive
       $<TARGET_LINKER_FILE:tactilebrowser_core>
