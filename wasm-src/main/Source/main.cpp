@@ -74,6 +74,16 @@ void load_url(const char* url) {
         });
     }
 }
+
+// Export helper so JS can start the initial navigation after module init.
+EMSCRIPTEN_KEEPALIVE
+void start_app() {
+    // Don't call load_url from C++ startup: let JS trigger it when everything (DOM + glue) is ready.
+    // This function is present so JS can call it explicitly if needed.
+    EM_ASM({
+        window.TactileBrowserWasm.setStatus('Start requested from JS', '#999');
+    });
+}
 }
 
 int main() {
@@ -94,7 +104,8 @@ int main() {
     content_area = lv_obj_create(lv_screen_active());
     lv_obj_set_size(content_area, SCREEN_WIDTH, SCREEN_HEIGHT - 50);
 
-    load_url(current_url);
+    // don't automatically call load_url here on startup.
+    // load_url(current_url);
 
     // Main loop
     emscripten_set_main_loop([](){ lv_timer_handler(); }, 0, 1);
