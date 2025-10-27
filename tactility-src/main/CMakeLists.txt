@@ -33,6 +33,7 @@ target_link_options(${COMPONENT_LIB} PRIVATE
     -u memcmp
     -u memcpy
     -u lv_textarea_class
+    -u tactilebrowser_render_url
 )
 
 # Suppress warnings from #include_next in Lexbor
