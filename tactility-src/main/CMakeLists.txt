@@ -1,9 +1,6 @@
 # Preserve specific component libraries from elf_loader trimming
 # Tell the elf_loader to keep these named components whole (don't strip them).
-set(ELF_LIBS
-  tactilebrowser_core
-  lexbor_static
-)
+set(ELF_LIBS tactilebrowser_core)
 
 # Gather all source files
 file(GLOB_RECURSE SOURCE_FILES Source/*.cpp *.cpp)
@@ -33,14 +30,6 @@ target_link_libraries(${COMPONENT_LIB} PRIVATE
       $<$<TARGET_EXISTS:lexbor_static>:$<TARGET_LINKER_FILE:lexbor_static>>
     -Wl,--no-whole-archive
     esp_http_client newlib TactilityC lvgl
-)
-
-# Force inclusion of required symbols for ELF loader
-target_link_options(${COMPONENT_LIB} PRIVATE
-    -u memcmp
-    -u memcpy
-    -u lv_textarea_class
-    -u tactilebrowser_render_url
 )
 
 # Suppress warnings from #include_next in Lexbor
