@@ -1,6 +1,6 @@
 # Preserve specific component libraries from elf_loader trimming
 # Tell the elf_loader to keep these named components whole (don't strip them).
-set(ELF_COMPONENTS
+set(ELF_LIBS
   tactilebrowser_core
   lexbor_static
 )
